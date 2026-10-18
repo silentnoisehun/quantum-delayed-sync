@@ -1,0 +1,15 @@
+{
+  "mode": "hardware",
+  "backend": "ibm_kingston",
+  "qubit": 91,
+  "theta": 2.353304971691044,
+  "shots": 1024,
+  "diagnostics": {
+    "dry_run": true,
+    "circuits": 16,
+    "target_dt": 4e-09,
+    "t1_calibrated": 0.0002541627621299776,
+    "t2_calibrated": 0.00012125600306875533
+  },
+  "rows": []
+}

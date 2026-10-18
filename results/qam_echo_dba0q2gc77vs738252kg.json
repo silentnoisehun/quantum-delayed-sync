@@ -1,0 +1,203 @@
+{
+  "job_id": "dba0q2gc77vs738252kg",
+  "backend": "ibm_kingston",
+  "qubit": 91,
+  "rows": [
+    {
+      "pub": 0,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 99.51171875,
+      "counts": {
+        "0": 1019,
+        "1": 5
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 1,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 14.453125,
+      "counts": {
+        "1": 876,
+        "0": 148
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 2,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 93.45703125,
+      "counts": {
+        "0": 957,
+        "1": 67
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 3,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 20.99609375,
+      "counts": {
+        "0": 215,
+        "1": 809
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 4,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 87.3046875,
+      "counts": {
+        "0": 894,
+        "1": 130
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 5,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 24.21875,
+      "counts": {
+        "1": 776,
+        "0": 248
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 6,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 79.6875,
+      "counts": {
+        "0": 816,
+        "1": 208
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 7,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 32.32421875,
+      "counts": {
+        "0": 331,
+        "1": 693
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 8,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 61.9140625,
+      "counts": {
+        "1": 390,
+        "0": 634
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 9,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 43.75,
+      "counts": {
+        "1": 576,
+        "0": 448
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 10,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 40.91796875,
+      "counts": {
+        "0": 419,
+        "1": 605
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 11,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 60.546875,
+      "counts": {
+        "0": 620,
+        "1": 404
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 12,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 29.98046875,
+      "counts": {
+        "1": 717,
+        "0": 307
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 13,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 80.078125,
+      "counts": {
+        "0": 820,
+        "1": 204
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 14,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 20.8984375,
+      "counts": {
+        "1": 810,
+        "0": 214
+      },
+      "tau_us": null,
+      "arm": null
+    },
+    {
+      "pub": 15,
+      "bin": "meas",
+      "total": 1024,
+      "p0": 92.28515625,
+      "counts": {
+        "0": 945,
+        "1": 79
+      },
+      "tau_us": null,
+      "arm": null
+    }
+  ],
+  "isa": {
+    "dt": null,
+    "granularity": null
+  }
+}

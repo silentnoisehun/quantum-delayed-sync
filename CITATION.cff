@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+title: Quantum Delayed Synchronization (QDS)
+authors:
+  - family-names: R
+    given-names: Máté
+    orcid: https://orcid.org/0009-0003-3986-6039
+    affiliation: Hope Ecosystem
+type: software
+version: 0.1.0
+date-released: 2026-10-18
+license: MIT
+repository-code: https://github.com/silentnoisehun/quantum-sync
+keywords: [quantum, qds, hahn-echo, t2, synchronization, qam]

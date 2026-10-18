@@ -1,0 +1,22 @@
+# --- TITOK: az IBM API-kulcs SOHA ne keruljon a repoba -------------------
+# A token a sajat kulcsod: a fenti fajl a helyi, nem a nyilvanos hely.
+ibm_token.json
+*.token
+apikey.json
+
+# --- Python kornyezet --------------------------------------------------
+.venv-qds/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# --- IDE / OS ----------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

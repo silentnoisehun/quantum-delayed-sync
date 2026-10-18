@@ -1,0 +1,83 @@
+{
+  "mode": "simulate",
+  "noise": {
+    "T1_us": 242.0,
+    "T2_us": 143.0
+  },
+  "theta": 2.353304971691044,
+  "shots": 1024,
+  "rows": [
+    {
+      "tau_us": 0,
+      "tau_dt": 0,
+      "echo_noisy_pct": 98.828125,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 14.6484375,
+      "echo_expected_pct": 99.99999999999999,
+      "ctrl_expected_pct": 14.746968301210494
+    },
+    {
+      "tau_us": 10,
+      "tau_dt": 44992,
+      "echo_noisy_pct": 95.21484375,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 19.3359375,
+      "echo_expected_pct": 95.86851203576006,
+      "ctrl_expected_pct": 18.198026933852496
+    },
+    {
+      "tau_us": 25,
+      "tau_dt": 112496,
+      "echo_noisy_pct": 88.8671875,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 21.97265625,
+      "echo_expected_pct": 90.06733635027999,
+      "ctrl_expected_pct": 23.114454584423672
+    },
+    {
+      "tau_us": 50,
+      "tau_dt": 224992,
+      "echo_noisy_pct": 81.4453125,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 33.49609375,
+      "echo_expected_pct": 81.36060064406472,
+      "ctrl_expected_pct": 30.660681783888
+    },
+    {
+      "tau_us": 100,
+      "tau_dt": 450000,
+      "echo_noisy_pct": 64.55078125,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 42.7734375,
+      "echo_expected_pct": 67.00477100980903,
+      "ctrl_expected_pct": 43.60387009271004
+    },
+    {
+      "tau_us": 200,
+      "tau_dt": 900000,
+      "echo_noisy_pct": 50.9765625,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 61.9140625,
+      "echo_expected_pct": 47.25980060759418,
+      "ctrl_expected_pct": 62.69313354442168
+    },
+    {
+      "tau_us": 400,
+      "tau_dt": 1800000,
+      "echo_noisy_pct": 28.22265625,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 84.765625,
+      "echo_expected_pct": 27.790788186235027,
+      "ctrl_expected_pct": 83.67445406924905
+    },
+    {
+      "tau_us": 800,
+      "tau_dt": 3600000,
+      "echo_noisy_pct": 18.45703125,
+      "echo_ideal_pct": 100.0,
+      "ctrl_noisy_pct": 95.3125,
+      "echo_expected_pct": 17.044676170730312,
+      "ctrl_expected_pct": 96.87373639827001
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "note": "A hash a SABLON kanonikus utasitassorozatabol keszult, nem a job visszaadott ISA-aramkorabol: a SamplerV2 a bekuldott ISA-aramkoroket nem teszi lekerdezhetoeve. Azonos hash = azonos fizikai lanc minden futasban.",
+  "template_sha256": "054e903186120de652da74c6d5861c79b8e183146676e14c1f3959633f2dff2c",
+  "theta": 2.353304971691044,
+  "phi": 5.9735141613602165,
+  "lam": 4.599253580133889,
+  "shots": 1024,
+  "qubit": 91,
+  "backend": "ibm_kingston",
+  "taus_us": [
+    0,
+    10,
+    25,
+    50,
+    100,
+    200,
+    400,
+    800
+  ],
+  "delay_unit": "us (a transzpiler konvertalja dt-re)"
+}

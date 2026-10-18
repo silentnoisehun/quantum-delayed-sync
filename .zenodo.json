@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "title": "Quantum Delayed Synchronization (QDS) - Hahn-Echo T2 Sweep",
+    "creators": [
+      {
+        "name": "R, Máté",
+        "affiliation": "Hope Ecosystem",
+        "orcid": "0009-0003-3986-6039"
+      }
+    ],
+    "license": "MIT",
+    "version": "0.1.0",
+    "upload_type": "software"
+  }
+}
