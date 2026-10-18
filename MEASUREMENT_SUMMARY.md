@@ -2,7 +2,7 @@
 
 ## 1. HARDVERES MERÉS (2026-10-18) — első valódi QPU-futás
 
-**Job ID:** `dba0q2gc77vs738252kg` · **Backend:** `ibm_kingston` (Eagle r3, 156 qubit, aktív)
+**Job ID:** `dba0q2gc77vs738252kg` · **Backend:** `ibm_kingston` (Heron r2, 156 qubit, aktív)
 **Qubit:** 91 · **Áramkör:** 16 (8 τ-érték × echo/kontroll kar) · **Shots:** 1024/áramkör
 **Kvóta:** a teljes sweep **10 s** QPU-időt kötött (600 s/hó limitből 456 s maradt).
 
@@ -56,7 +56,7 @@ tolná el.
 
 **Következtetés: a τ-tengely helyes, a T2-csökkenés valós extra dekoherencia.**
 Az IBM kalibrált T2-je ideális, stabil frekvenciát feltételez; a random-axis
-Hahn-echo viszont a delay alatti frekvencia-driftet nem képes visszafókuszálni,
+U-delay-U-dagger visszateresi kar viszont a delay alatti frekvencia-driftet nem képes visszafókuszálni,
 így a mért 77,5 µs az **echo-korlátozott** T2 — de ez egyetlen futásból
 származik; a teljes kép az 5 futás átlaga (§2b).
 

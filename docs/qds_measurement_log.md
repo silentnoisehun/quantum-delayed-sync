@@ -1,7 +1,7 @@
 # QDS Measurement Log
 
 > Projekt: Quantum Delayed Synchronization (QDS)
-> Meres tipusa: Hahn-echo T2 sweep
+> Meres tipusa: U-delay-U-dagger visszateresi kar T2 sweep
 > Backend: ibm_kingston
 
 ## 1. Setup
@@ -81,7 +81,7 @@ fugg, igy egy rejtett idoskalaszor mindket karat AZONOS arannyal tolna el.
 - T2 arany = 0.639 ± 0.106
 - kulonbseg 0.484 = 4.4× a szoras → **nem idoskala, valos extra dekoherencia**
 
-**T2_eff = 77,5 ± 12,9 us** az echo-korlatozott T2: a random-axis Hahn-echo nem
+**T2_eff = 77,5 ± 12,9 us** az echo-korlatozott T2: a random-axis U-delay-U-dagger visszeteresi kar nem
 tudja visszafokuszalni a delay alatti frekvencia-driftet, amit az IBM kalibralt
 T2-je idealisnak tekint. Ez a QDS pilot fo eredmenye.
 

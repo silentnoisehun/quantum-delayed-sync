@@ -4,10 +4,14 @@ CROSS-REPO TESZT — a QDS drift-találata bejáratja a wave-quantum ⟨ZZ⟩ cs
 =================================================================================
 Kérdés: a QDS 5 futása kimutatta, hogy a 91-es qubit FÁZIS-KOHERENCIÁJA
 (T2_eff) 43–141 us között ingadozik percenként — 3,62x a mérési zajon túl.
-Ha ez a drift uralja a programot, akkor a wave-quantum ⟨ZZ⟩ csatornájának
-Pearson-rje is erősen ingadozik futásról futásra.
+Ha ez a drift uralja a programozékon, akkor a wave-quantum ⟨ZZ⟩ csatornájának
+**kontraszt A** is erősen ingadoznia kellene futásról futásra.
 
-Ha viszont az r STABIL, akkor a hipotézis HAMIS: a drift a 91-es qubit
+FONTOS: a Pearson-r invariáns a skálára és eltolása ellen. A drift a
+kontrasztot (A = max⟨ZZ⟩ - min⟨ZZ⟩) változtatja, nem az alakot. Tehát a
+stabil r nem cáfolja a drift hatást — csak a **A** teszi.
+
+Ha viszont az A STABIL, akkor a hipotézis HAMIS: a drift a 91-es qubit
 specifikus problémája, nem a program általános korlátja.
 
 Áramkör: a wave_quantum_v3.py `build_v3` / `run_theorem_sweep` szerint
@@ -150,46 +154,72 @@ def main():
             rows.append({'band': k, 'measured_zz': zz,
                          'theory_zz': theory[k], 'counts': dict(counts)})
         r = pearson(theory, meas)
+        # Kontraszt A: max⟨ZZ⟩ - min⟨ZZ⟩ — a Pearson-r-nél ÉRZÉKENY a driftnek,
+        # mert a Pearson-r invariáns a skálára és eltolása ellen.
+        contrast_a = max(meas) - min(meas)
+        theory_contrast = max(theory) - min(theory)
         results.append({'run': run, 'job_id': job.job_id(),
                         'submitted_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ',
                                                        time.gmtime(t0)),
-                        'pearson_r': r, 'rows': rows})
+                        'pearson_r': r, 'contrast_a': contrast_a,
+                        'contrast_a_theory': theory_contrast, 'rows': rows})
         fn = os.path.join(RESULTS, f'wave_zz_repeat_run{run}.json')
         with open(fn, 'w', encoding='utf-8') as f:
             json.dump({'backend': BACKEND, 'shots': args.shots,
                        'layout': layout, 'source': 'wave_quantum_v3.py build_v3',
-                       'pearson_r': r, 'job_id': job.job_id(),
+                       'pearson_r': r, 'contrast_a': contrast_a,
+                       'contrast_a_theory': theory_contrast,
+                       'job_id': job.job_id(),
                        'run': run, 'rows': rows}, f, indent=2)
-        print(f'run{run}: r = {r:.4f}   zorat: ' +
+        print(f'run{run}: r = {r:.4f}  A = {contrast_a:.4f}  ' +
               ' '.join(f'{m:+.3f}' for m in meas))
         try:
             u = svc.usage()
-            print(f'   kvota: {u["usage_consumed_seconds"]}/{u["usage_limit_seconds"]} s '
+            print(f'   kvota: {u["usage_consumed_seconds"]}/{u["usage_limit_seconds"]} '
                   f'(maradt {u["usage_remaining_seconds"]})')
         except Exception:  # noqa: BLE001
             pass
 
     rs = [x['pearson_r'] for x in results]
-    mean, sd = sum(rs) / len(rs), (sum((v - mean) ** 2 for v in rs) /
-                                    (len(rs) - 1)) ** 0.5
+    mean = sum(rs) / len(rs)
+    sd = (sum((v - mean) ** 2 for v in rs) /
+          (len(rs) - 1)) ** 0.5
+    # Kontraszt A statisztikák
+    a_vals = [x['contrast_a'] for x in results]
+    a_mean = sum(a_vals) / len(a_vals)
+    a_sd = (sum((v - a_mean) ** 2 for v in a_vals) /
+            (len(a_vals) - 1)) ** 0.5
     print('=' * 72)
     print('PEARSON r futasonkent: ' + '  '.join(f'{v:.4f}' for v in rs))
-    print(f'atlag {mean:.4f}  szoras {sd:.4f}  (relativ szoras {sd/mean*100:.1f}%)')
+    print(f'atlag {mean:.4f}  szoras {sd:.4f}  (relativ szoras {sd/mean*100:.4f}%)')
+    print()
+    print('KONTRAST A (max-min \u3008ZZ\u300e) futasonkent: ' + '  '.join(f'{v:.4f}' for v in a_vals))
+    print(f'atlag {a_mean:.4f}  szoras {a_sd:.4f}  (relativ szoras {a_sd/a_mean*100:.1f}%)')
     print()
     print('OSSZEHASONLITAS a QDS T2_eff szorasaval:')
     print('  QDS T2_eff  : atlag 89.6 us, szoras 39.2 us -> 43.7% relativ')
-    print(f'  wave ZZ r   : atlag {mean:.4f}, szoras {sd:.4f} -> {sd/mean*100:.1f}% relativ')
-    verdict = ('AZ INGADOZAS AZONOS NAGYSAGRENDU — a drift a <ZZ> csatornat is '
-               'uralja (a hipotezis TAMASZTOTT)'
-               if (sd / mean) > 0.2 else
-               'AZ r STABIL — a drift NEM hat a <ZZ> csatornara; a hipotezis '
-               'HAMIS (a drift a 91-es qubit specifikus)')
+    print(f'  wave ZZ r   : atlag {mean:.4f}, szoras {sd:.4f} -> {sd/mean*100:.4f}% relativ')
+    print(f'  wave ZZ A   : atlag {a_mean:.4f}, szoras {a_sd:.4f} -> {a_sd/a_mean*100:.1f}% relativ')
+    print(f'  A teoretikus: {theory_contrast:.4f} (minden futásban azonos)')
+    # A hipotézis TESZT: ha a drift a csatornát is destabilizálja, A is ingadozik
+    a_rel_std = a_sd / a_mean * 100
+    r_rel_std = sd / mean * 100
+    if a_rel_std > 10:
+        verdict = ('AZ INGADOZAS AZONOS NAGYSAGRENDU -- a kontraszt A is '
+                   'ingadozik (a hipotezis TAMASZTOTT)')
+    else:
+        verdict = (f'AZ r ES AZ A IS STABIL -- a drift NEM hat a <ZZ> csatornar '
+                   f'(r rel. szoras: {r_rel_std:.4f}%, A rel. szoras: {a_rel_std:.1f}%) '
+                   f'a hipotezis HAMIS (a drift a 91-es qubit specifikus)')
     print(f'  -> {verdict}')
     with open(os.path.join(RESULTS, 'wave_zz_repeat_summary.json'), 'w',
               encoding='utf-8') as f:
         json.dump({'backend': BACKEND, 'shots': args.shots, 'layout': layout,
                    'pearson_r_per_run': rs, 'r_mean': mean, 'r_std': sd,
                    'r_relative_std_pct': sd / mean * 100,
+                   'contrast_a_per_run': a_vals, 'contrast_a_mean': a_mean,
+                   'contrast_a_std': a_sd, 'contrast_a_relative_std_pct': a_rel_std,
+                   'contrast_a_theory': theory_contrast,
                    'qds_t2eff_relative_std_pct': 43.7,
                    'verdict': verdict, 'runs': results}, f, indent=2)
     print('mentve: results/wave_zz_repeat_summary.json')

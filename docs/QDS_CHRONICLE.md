@@ -87,7 +87,7 @@ A két arány különbsége 0,484 = **4,4× a hibaváltozó szórása**. Az ará
 **nem egyeznek** → **nem időskála-hiba**, hanem valódi extra dekoherencia.
 
 **A fizikai magyarázat:** az IBM kalibrált T₂-je ideális, statikus frekvenciát
-feltételez. A random-axis Hahn-echo viszont a delay alatt fellépő
+feltételez. A random-axis U-delay-U-dagger visszateresi kar viszont a delay alatt fellépő
 frekvencia-driftet **nem tudja visszafókuszálni**, ezért a mért érték az
 **echo-korlátozott T₂**. Ez a mérés fő eredménye — nem hiba.
 
@@ -113,7 +113,7 @@ időbeli drift is láthatóvá vált.
 2. **T₁ arány stabil (1,08 ± 0,14)**, T₂ arány instabil (0,74 ± 0,33).
    A kontroll referencia kar megerősíti: **a τ-tengely helyes** — a szóródás
    a T₂-ben jelentkezik, nem az időskálában.
-3. **A T₂-effektív 43–141 µs** között ingadozik — a szórás (39 µs) 2,5×
+3. **A T₂-effektív 43–141 µs** között ingadozik — a szórás (39 µs) 3,6×
    nagyobb, mint a futásonkénti illesztési hiba (~12 µs). Ez **nem statisztikai
    zaj**, hanem **valódi időbeli drift**: a frekvencia-stabilitás változik
    futásról futásra.

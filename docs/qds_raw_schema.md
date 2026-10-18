@@ -77,7 +77,7 @@ T₂/T₁ futásonként, monotoniateszt futásonként.
 
 - **Nincs `frequency_GHz`** a qubithez: a `ibm_kingston` target `qubit_properties`
   mezője `frequency=None`-t ad, ezért ezt nem tároljuk, ne is hirdessük.
-- **A processor típusa**: `ibm_kingston` Eagle r3 (Heron r2 **nem**).
+- **A processor típusa**: `ibm_kingston` Heron r2 (Eagle r3 **nem**) — 156Q.
 - **A `dt` nem része a sémának**, mert a platform 4 ns-os *nominális* értéket
   ad (`granularity=1`, `pulse_alignment=1`), ami nem valós pulzalidőzítés.
   A τ-tengelyt ezért a kontroll kar arbitrálja, nem a delay hossza.

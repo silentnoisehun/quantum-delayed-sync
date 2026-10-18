@@ -6,7 +6,7 @@
 ## Mit mérünk?
 
 A QDS a memória spine és a kvantum-állapot koherens szinkronizációját vizsgálja.
-Hahn-echo sweep: `U → delay(τ) → U†` (echo) kontra `U → delay(τ)` (kontroll),
+U-delay-U-dagger visszateresi kar sweep: `U → delay(τ) → U†` (echo) kontra `U → delay(τ)` (kontroll),
 8 τ-értéken (0…800 µs), fix 91-es qubiten, 1024 shot/áramkör.
 
 A **kontroll kar nem dísz**: kizárólag T₁-től függ, ezért az időskála
@@ -22,7 +22,7 @@ vagy csupán rossz `dt`-feltevés. Lásd [`docs/QDS_CHRONICLE.md`](docs/QDS_CHRO
 | Kontroll karból illesztett T₁ | egyezik a kalibrálttal (1,12 ± 0,11) |
 
 A T₂-deficit **nem mérési hiba**: az IBM kalibráció statikus frekvenciát
-feltételez, a random-axis Hahn-echo pedig a delay alatti frekvencia-driftet nem
+feltételez, a random-axis U-delay-U-dagger visszateresi kar pedig a delay alatti frekvencia-driftet nem
 tudja visszafókuszálni.
 
 ## Futtatás
@@ -61,7 +61,7 @@ A fájl **nincs** a repóban (`.gitignore`), és a kulcs soha ne kerül commitba
 ## Specifikáció
 
 - Qubit: **91** (T1 = 254,16 µs, T2 = 121,26 µs a mérés pillanatában)
-- Backend: `ibm_kingston` (Eagle r3, 156 qubit)
+- Backend: `ibm_kingston` (Heron r2, 156 qubit)
 - `opt_level=0`, `seed_transpiler=42`, `theta=2.3533`
 - DD kikapcsolva, 1024 shot/áramkör
 - A `delay` **µs-ban** van megadva → a transzpiler konvertálja dt-re

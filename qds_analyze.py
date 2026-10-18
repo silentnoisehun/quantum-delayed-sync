@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-QDS — hardveres Hahn-echo eredmeny KIERTEKELES (kvota nelkul)
+QDS — hardveres U-delay-U-dagger visszateresi kar eredmeny KIERTEKELES (kvota nelkul)
 ============================================================
 Bemenet: a befejezett job nyers eredmenye (results/qam_echo_<JOB>.json)
 A sorrend a bekuldés sorrendje: tau0 echo, tau0 ctrl, tau10 echo, ...

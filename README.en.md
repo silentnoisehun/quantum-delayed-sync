@@ -6,7 +6,7 @@
 ## What do we measure?
 
 QDS investigates coherent synchronization between the memory spine and quantum
-state. Hahn-echo sweep: `U → delay(τ) → U†` (echo) vs `U → delay(τ)` (control),
+state. U-delay-U-dagger visszateresi kar sweep: `U → delay(τ) → U†` (echo) vs `U → delay(τ)` (control),
 across 8 τ values (0…800 µs), fixed qubit 91, 1024 shots/circuit.
 
 The **control arm is not decoration**: it depends on T₁ alone, which makes it
@@ -61,7 +61,7 @@ That file is **not** in the repo (`.gitignore`), and the key must never be commi
 ## Specification
 
 - Qubit: **91** (T1 = 254.16 µs, T2 = 121.26 µs at measurement time)
-- Backend: `ibm_kingston` (Eagle r3, 156 qubits)
+- Backend: `ibm_kingston` (Heron r2, 156 qubits)
 - `opt_level=0`, `seed_transpiler=42`, `theta=2.3533`
 - DD disabled, 1024 shots/circuit
 - `delay` is given in **µs** → the transpiler converts to dt

@@ -5,6 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "quantum-sync"
 version = "0.1.0"
-description = "Quantum Delayed Synchronization (QDS) - Hahn-echo T2 sweep"
+description = "Quantum Delayed Synchronization (QDS) - U-delay-U-dagger visszateresi kar T2 sweep"
 requires-python = ">=3.10"
 dependencies = ["qiskit>=1.0", "qiskit-aer>=0.13", "numpy>=1.24"]

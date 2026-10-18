@@ -4,7 +4,7 @@ QDS — dt-igazolas a MAR MEGFIZETT jobokból (KVÓTA NÉLKÜL)
 ==========================================================
 Kerdes: a platform dt=4 ns-ot ir. 4 ns = 250 MHz -> fizikailag
 NEM LEHET egy 5 GHz-os qubit sampling rate-je. A valodi dt valoszinusuleg
-~0.222 ns (Eagle r3). Ezt a mar befizetett jobok ISA-k-circuitjeinek
+~0.222 ns (Heron r2). Ezt a mar befizetett jobok ISA-k-circuitjeinek
 muvelet-idotartamaibol lehet eldonteni:
 
   ha az sx gate 40 dt es a valodi hossza 40 * 0.222 ns = 8.9 ns
