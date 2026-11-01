@@ -10,6 +10,13 @@ on:
 permissions:
   contents: read
 
+# Ugyanarra a branch-re ne fusson két validáció párhuzamosan: a régebbi futás
+# megszakad. Így a GitHub runner-sorban állása nem ad percekkel későbbi
+# visszajelzést (a tényleges munka ~2,5 perc).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
