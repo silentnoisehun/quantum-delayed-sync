@@ -42,6 +42,12 @@ during the delay. The fact that relaxation (T₁) is stable while phase coherenc
 > architecture. The itemised limits are in
 > [`docs/QDS_REFEREE_STATS.md`](docs/QDS_REFEREE_STATS.md).
 
+![QDS overview figure](results/figures/qds_overview.png)
+
+*Four panels: the echo and control arms against the calibrated model, the
+per-run fit (T₂ vs. T₁), and the wave-quantum cross-test. Regenerate with
+`qds_plots.py` — no token, no quota.*
+
 ## Install
 
 Python ≥ 3.10. For hardware work use a **dedicated venv** (never the global
@@ -86,6 +92,11 @@ python qds_multirun_stats.py       # results/multirun_stats.json
 python qds_analyze.py              # results/qam_echo_t2_results.json
 python qds_detectability.py        # χ² test: drift vs. shot noise
 python qds_axis_arbitration.py     # time axis vs. real decoherence
+
+# 7. tools that also run without quota (from the existing data)
+python qds_robustness.py           # bootstrap CIs, weighting, τ-range sweep
+python qds_plots.py                # results/figures/qds_overview.png
+python qds_wavezz_repeat.py --offline   # recompute the wave-quantum ⟨ZZ⟩ test
 ```
 
 If the job finished but post-processing crashed: do **not** resubmit, run

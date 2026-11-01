@@ -134,8 +134,14 @@ def main(argv=None):
     ap.add_argument("--backend", default=BACKEND_NAME)
     ap.add_argument("--dry-run", action="store_true",
                     help="csak az áramkör felépítése, beküldés nélkül")
+    ap.add_argument("--offline", action="store_true",
+                    help="a meglévő results/wave_zz_repeat_run*.json adatokból "
+                         "újraszámol (nem kell token, nem fogy kvóta)")
     args = ap.parse_args(argv)
     os.makedirs(RESULTS, exist_ok=True)
+
+    if args.offline:
+        return analyze_offline()
 
     from qiskit import transpile
 
@@ -208,6 +214,14 @@ def main(argv=None):
         except Exception as exc:
             print(f"   kvóta-info nem elérhető: {exc}")
 
+    print("=" * 72)
+    summary = report_summary(run_results)
+    save_summary(run_results, summary)
+    return 0
+
+
+def report_summary(run_results):
+    """A futások kiértékelése + kiírás (külön, hogy offline is hívható legyen)."""
     summary = summarize(run_results)
     print("=" * 72)
     print("PEARSON r futásonként: "
@@ -239,13 +253,88 @@ def main(argv=None):
     print(f"  A teoretikus: {summary['contrast_a_theory']:.4f} "
           f"(minden futásban azonos)")
     print(f"  → {summary['verdict']}")
+    return summary
 
-    with open(os.path.join(RESULTS, "wave_zz_repeat_summary.json"), "w",
-              encoding="utf-8") as f:
-        json.dump({**summary, "runs": run_results}, f, indent=2)
+
+def save_summary(run_results, summary=None, results_dir=RESULTS):
+    """A ``wave_zz_repeat_summary.json`` kiírása.
+
+    A futás-szintű metaadatok (backend, shots, layout) is bekerülnek, hogy az
+    offline újraszámolás ne veszítse el őket — korábban ez megtörtént.
+    """
+    summary = summary or summarize(run_results)
+    first = run_results[0] if run_results else {}
+    meta = {
+        "backend": first.get("backend", BACKEND_NAME),
+        "shots": first.get("shots"),
+        "layout": first.get("layout"),
+    }
+    path = os.path.join(results_dir, "wave_zz_repeat_summary.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({**meta, **summary, "runs": run_results}, f, indent=2)
         f.write("\n")
-    print("mentve: results/wave_zz_repeat_summary.json")
+    print(f"mentve: {os.path.relpath(path, _HERE)}")
+    return path
+
+
+def load_saved_runs(results_dir=RESULTS):
+    """A korábbi futások JSON-jai (offline elemzéshez)."""
+    files = sorted(
+        f for f in os.listdir(results_dir)
+        if f.startswith("wave_zz_repeat_run") and f.endswith(".json")
+    )
+    runs = []
+    for fn in files:
+        with open(os.path.join(results_dir, fn), encoding="utf-8") as f:
+            runs.append(json.load(f))
+    return runs
+
+
+def analyze_offline(results_dir=RESULTS):
+    """Újraszámolja az összegzést a MEGLÉVŐ futásfájlokból (kvóta nélkül).
+
+    Ez a mód akkor hasznos, ha a kvóta elfogyott, de a nyers adatok megvannak:
+    ugyanazt az elemzést adja, mint egy új futás, csak új mérés nélkül.
+    """
+    runs = load_saved_runs(results_dir)
+    if not runs:
+        print("HIBA: nincs wave_zz_repeat_run*.json a results/ könyvtárban",
+              file=sys.stderr)
+        return 2
+    print(f"OFFLINE elemzés: {len(runs)} mentett futás "
+          f"({', '.join(str(r.get('run')) for r in runs)})")
+    checks = _self_checks(runs)
+    for line in checks["lines"]:
+        print(line)
+    print("=" * 72)
+    summary = report_summary(runs)
+    save_summary(runs, summary, results_dir)
     return 0
+
+
+def _self_checks(runs):
+    """Konzisztencia-ellenőrzés: a mentett r/A egyezik-e az újraszámolttal.
+
+    A korábbi fájlokban a ``pearson_r`` és a ``contrast_a`` is benne van; ha a
+    ``rows``-ból újraszámolt érték ettől eltér, akkor a fájl kézzel (vagy más
+    kóddal) módosult — ezt ki kell mondani, nem elrejteni.
+    """
+    lines, mismatches = ["Konzisztencia (mentett vs. rows-ból újraszámolt):"], 0
+    for r in runs:
+        theory = [row["theory_zz"] for row in r["rows"]]
+        meas = [row["measured_zz"] for row in r["rows"]]
+        r_new = pearson(theory, meas)
+        a_new = max(meas) - min(meas)
+        dr = abs(r_new - r.get("pearson_r", r_new))
+        da = abs(a_new - r.get("contrast_a", a_new))
+        ok = dr < 1e-9 and da < 1e-9
+        mismatches += 0 if ok else 1
+        lines.append(f"  run{r.get('run')}: r {r.get('pearson_r', float('nan')):.6f} "
+                     f"({'egyezik' if dr < 1e-9 else f'ELTÉR {dr:.2e}'}), A "
+                     f"{r.get('contrast_a', float('nan')):.4f} "
+                     f"({'egyezik' if da < 1e-9 else f'ELTÉR {da:.2e}'})")
+    lines.append(f"  → {'minden fájl konzisztens' if not mismatches else str(mismatches) + ' eltérés!'}")
+    return {"lines": lines, "mismatches": mismatches}
 
 
 def service_usage():
@@ -260,6 +349,7 @@ def summarize(run_results):
     a_vals = [x["contrast_a"] for x in run_results]
     r_mean, r_sd = _sd(rs)
     a_mean, a_sd = _sd(a_vals)
+    baseline = qds_baseline()
     a_rel = a_sd / a_mean * 100 if a_mean else float("inf")
     r_rel = r_sd / r_mean * 100 if r_mean else float("inf")
     if a_rel > 10:
@@ -279,7 +369,12 @@ def summarize(run_results):
                                   for i in range(len(run_results[0]["rows"])))
                               - min(run_results[0]["rows"][i]["theory_zz"]
                                     for i in range(len(run_results[0]["rows"])))),
-        "qds_baseline": qds_baseline(),
+        "qds_baseline": baseline,
+        # Visszafelé kompatibilitás: a korábbi verzió ezeket a kulcsokat
+        # beégetve írta ki; most a results/multirun_stats.json-ból származnak.
+        "qds_t2eff_mean_us": (baseline or {}).get("mean_us"),
+        "qds_t2eff_std_us": (baseline or {}).get("std_us"),
+        "qds_t2eff_relative_std_pct": (baseline or {}).get("relative_std_pct"),
         "verdict": verdict,
     }
 

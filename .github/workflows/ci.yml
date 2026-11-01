@@ -50,6 +50,9 @@ jobs:
           python qds_detectability.py
           python qds_axis_arbitration.py
           python qds_dt_probe.py --offline
+          python qds_robustness.py --bootstrap 200
+          python qds_plots.py
+          python qds_wavezz_repeat.py --offline
 
       - name: Offline environment check (FakeKingston)
         run: python qds_env_check.py --offline
