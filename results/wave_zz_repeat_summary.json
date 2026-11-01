@@ -38,15 +38,39 @@
   "contrast_a_std": 0.022634350946590834,
   "contrast_a_relative_std_pct": 1.50133277427834,
   "contrast_a_theory": 1.970941817426052,
-  "qds_t2eff_relative_std_pct": 43.7,
-  "qds_t2eff_mean_us": 89.6,
-  "qds_t2eff_std_us": 39.2,
-  "verdict": "AZ r ES AZ A IS STABIL -- a drift NEM hat a <ZZ> csatornar (r rel. szoras: 0.0132%, A rel. szoras: 1.50%) a hipotezis HAMIS (a drift a 91-es qubit specifikus)",
+  "qds_baseline": {
+    "mean_us": 89.63377091727263,
+    "std_us": 39.18056018651972,
+    "relative_std_pct": 43.71182846103994
+  },
+  "qds_t2eff_mean_us": 89.63377091727263,
+  "qds_t2eff_std_us": 39.18056018651972,
+  "qds_t2eff_relative_std_pct": 43.71182846103994,
+  "verdict": "AZ r \u00c9S AZ A IS STABIL \u2014 a drift NEM hat a \u27e8ZZ\u27e9 csatorn\u00e1ra (r rel. sz\u00f3r\u00e1s: 0.0132 %, A rel. sz\u00f3r\u00e1s: 1.5 %) \u2192 a hipot\u00e9zis HAMIS (a drift a 91-es qubit specifikus)",
   "runs": [
     {
-      "run": 1,
+      "backend": "ibm_kingston",
+      "shots": 2048,
+      "layout": [
+        107,
+        106,
+        105,
+        108,
+        109,
+        110,
+        111,
+        98,
+        91,
+        92,
+        93,
+        94,
+        95,
+        99
+      ],
+      "source": "wave_quantum_v3.py build_v3",
       "pearson_r": 0.9993312979782591,
-      "contrast_a": 1.484375,
+      "job_id": "dba1g4k24mrc7384og10",
+      "run": 1,
       "rows": [
         {
           "band": 0,
@@ -191,12 +215,33 @@
             "11": 66
           }
         }
-      ]
+      ],
+      "contrast_a": 1.484375,
+      "contrast_a_theory": 1.970941817426052
     },
     {
-      "run": 2,
+      "backend": "ibm_kingston",
+      "shots": 2048,
+      "layout": [
+        107,
+        106,
+        105,
+        108,
+        109,
+        110,
+        111,
+        98,
+        91,
+        92,
+        93,
+        94,
+        95,
+        99
+      ],
+      "source": "wave_quantum_v3.py build_v3",
       "pearson_r": 0.9992466575153345,
-      "contrast_a": 1.525390625,
+      "job_id": "dba1grs24mrc7384ohlg",
+      "run": 2,
       "rows": [
         {
           "band": 0,
@@ -341,12 +386,33 @@
             "01": 181
           }
         }
-      ]
+      ],
+      "contrast_a": 1.525390625,
+      "contrast_a_theory": 1.970941817426052
     },
     {
-      "run": 3,
+      "backend": "ibm_kingston",
+      "shots": 2048,
+      "layout": [
+        107,
+        106,
+        105,
+        108,
+        109,
+        110,
+        111,
+        98,
+        91,
+        92,
+        93,
+        94,
+        95,
+        99
+      ],
+      "source": "wave_quantum_v3.py build_v3",
       "pearson_r": 0.9993687742619957,
-      "contrast_a": 1.4814453125,
+      "job_id": "dba1hj1gv2cc73e67lj0",
+      "run": 3,
       "rows": [
         {
           "band": 0,
@@ -491,12 +557,33 @@
             "11": 62
           }
         }
-      ]
+      ],
+      "contrast_a": 1.4814453125,
+      "contrast_a_theory": 1.970941817426052
     },
     {
-      "run": 4,
+      "backend": "ibm_kingston",
+      "shots": 2048,
+      "layout": [
+        107,
+        106,
+        105,
+        108,
+        109,
+        110,
+        111,
+        98,
+        91,
+        92,
+        93,
+        94,
+        95,
+        99
+      ],
+      "source": "wave_quantum_v3.py build_v3",
       "pearson_r": 0.9994587141794279,
-      "contrast_a": 1.521484375,
+      "job_id": "dba1iapgv2cc73e67n4g",
+      "run": 4,
       "rows": [
         {
           "band": 0,
@@ -641,12 +728,33 @@
             "01": 176
           }
         }
-      ]
+      ],
+      "contrast_a": 1.521484375,
+      "contrast_a_theory": 1.970941817426052
     },
     {
-      "run": 5,
+      "backend": "ibm_kingston",
+      "shots": 2048,
+      "layout": [
+        107,
+        106,
+        105,
+        108,
+        109,
+        110,
+        111,
+        98,
+        91,
+        92,
+        93,
+        94,
+        95,
+        99
+      ],
+      "source": "wave_quantum_v3.py build_v3",
       "pearson_r": 0.9995933586014307,
-      "contrast_a": 1.525390625,
+      "job_id": "dba1j27i0auc7391cl3g",
+      "run": 5,
       "rows": [
         {
           "band": 0,
@@ -791,7 +899,9 @@
             "11": 55
           }
         }
-      ]
+      ],
+      "contrast_a": 1.525390625,
+      "contrast_a_theory": 1.970941817426052
     }
   ]
 }

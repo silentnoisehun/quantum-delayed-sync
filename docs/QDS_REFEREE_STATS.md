@@ -46,6 +46,52 @@ Mért átlag: T₁_eff = 273,8 ± 37,2 µs (arány 1,08)
             χ²(T₂) = 60,9 (df=4, p≈2·10⁻¹²)   χ²(T₁) = 7,7 (df=4, p=0,10)
 ```
 
+
+## Robusztusság-ellenőrzések (2026-11-01, `qds_robustness.py`)
+
+Új mérés nélkül, a meglévő 5 futás adataiból. Cél: kiderüljön, mennyire
+függ az eredmény az illesztés módszerétől.
+
+### 1. A futás-átlagolt görbe és a futásonkénti illesztések átlaga NEM ugyanaz
+
+| becslés | T₂ (µs) |
+|---|---|
+| futásonkénti T₂_eff **átlaga** (a fő, publikált szám) | **89,6 ± 17,5** (SEM) |
+| a **futás-átlagolt görbére** illesztve | **79,3 ± 6,8** |
+| ugyanaz bootstrap 95 % CI-vel (2000 ismétlés) | 66,9–89,8 |
+
+A két becslés **nem ugyanaz a mennyiség**: az átlagolandó T₂_eff nemlineáris
+függvénye a pontoknak, ezért a görbe-átlagolás után illesztett érték
+rendszerint alacsonyabb. A publikált **89,6 µs a futásonkénti becslések
+átlaga**; a 79,3 µs a „tipikus görbére” vonatkozó érték. A futások közti
+ingadozás (σ = 39,2 µs) nagyobb, mint a kettő közti különbség (10,4 µs), tehát
+egyik becslés sem cáfolja a másikat.
+
+### 2. A hibasáv nem alulbecsült
+
+| ellenőrzés | eredmény |
+|---|---|
+| bootstrap / görbe-illesztés hibaaránya | **0,87×** (összhangban, nem szélesebb) |
+| súlyozott (shot-noise 1/σ²) vs. súlyozatlan T₂ | −2,9 % (76,9 vs. 79,3 µs) |
+| τ-tartomány érzékenysége | ≤400 µs: 79,3 · ≤200 µs: 79,1 · ≥25 µs: 80,8 · ≤100 µs: 83,3 µs |
+
+A τ-tartományra való érzékenység **±5 %**-on belül van: az eredményt nem a
+hosszú τ-k (vagy a τ=0 pont) uralják.
+
+### 3. A T₁-ből származó τ-tengely állítás robusztus
+
+A futás-átlagolt kontroll görbére illesztett T₁ = 276,9 ± 23,1 µs,
+bootstrap 95 % CI **241,4–294,9 µs** — ez **tartalmazza** a kalibrált
+254,2 µs-ot, és a T₂-oldali bootstrap (66,9–89,8 µs) **nem** tartalmazza a
+kalibrált 121,3 µs-ot. A τ-tengely vs. valódi dekoherencia szétválasztása tehát
+nem az illesztési módszer műterméke.
+
+> **Korlát:** a bootstrap a reziduálisok újramintázásán alapul, ami feltételezi,
+> hogy a modell helyes és a hibák függetlenek. A futások közti drift
+> (σ = 39,2 µs) **nagyobb**, mint a futáson belüli illesztési hiba, ezért a
+> futásonkénti hibasávok a *futáson belüli* bizonytalanságot írják le, nem a
+> driftét — utóbbit a χ²-teszt méri (§ fent).
+
 ## Összefoglalás egy mondatban
 
 > Az 5 futás azt bizonyítja, hogy a QDS pipeline éles IBM hardveren működik,

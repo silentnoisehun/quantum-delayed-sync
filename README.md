@@ -41,6 +41,12 @@ tudja visszafókuszálni. Az, hogy a relaxáció (T₁) stabil, a fázis-koheren
 > **Amit ez NEM bizonyít** — új fizikát nem, és a Hope architektúráról semmit.
 > A korlátok tételes listája: [`docs/QDS_REFEREE_STATS.md`](docs/QDS_REFEREE_STATS.md).
 
+![QDS áttekintő ábra](results/figures/qds_overview.png)
+
+*Négy panel: az echo és a kontroll kar a kalibrált modellel szemben, a
+futásonkénti illesztés (T₂ vs. T₁), és a wave-quantum kereszt-teszt. Az ábra a
+`qds_plots.py`-jal újragenerálható — token és kvóta nélkül.*
+
 ## Telepítés
 
 Python ≥ 3.10. A hardveres részhez **külön venv** ajánlott (a globális
@@ -85,6 +91,11 @@ python qds_multirun_stats.py       # results/multirun_stats.json
 python qds_analyze.py              # results/qam_echo_t2_results.json
 python qds_detectability.py        # χ²-teszt: drift vs. zaj
 python qds_axis_arbitration.py     # τ-tengely vs. valódi dekoherencia
+
+# 7. kvóta nélkül is futó eszközök (a meglévő adatokból)
+python qds_robustness.py           # bootstrap hibasáv, súlyozás, τ-tartomány
+python qds_plots.py                # results/figures/qds_overview.png
+python qds_wavezz_repeat.py --offline   # a wave-quantum ⟨ZZ⟩ újraszámolása
 ```
 
 Ha a job lefutott, de a feldolgozás elszállt: **ne** küldj új jobot, a

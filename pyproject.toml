@@ -30,7 +30,8 @@ dependencies = [
 
 [project.optional-dependencies]
 hardware = ["qiskit-ibm-runtime>=0.30"]
-dev = ["pytest>=7", "ruff>=0.6"]
+plots = ["matplotlib>=3.6"]
+dev = ["pytest>=7", "ruff>=0.6", "matplotlib>=3.6"]
 
 [project.urls]
 Repository = "https://github.com/silentnoisehun/quantum-delayed-sync"
