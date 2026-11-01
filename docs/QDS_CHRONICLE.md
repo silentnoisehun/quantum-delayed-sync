@@ -83,7 +83,7 @@ módosított dt-vel. **Nem futtattuk** — helyette beépítettünk egy karrefer
 | T1 (kontroll kar) | 285,5 ± 27,6 µs | 254,2 µs | **1,123 ± 0,109** |
 | T2 (echo kar) | 77,5 ± 12,9 µs | 121,3 µs | **0,639 ± 0,106** |
 
-A két arány különbsége 0,484 = **4,4× a hibaváltozó szórása**. Az arányok
+A két arány különbsége 0,484 = **3,2σ** a kombinált hibabecsléssel. Az arányok
 **nem egyeznek** → **nem időskála-hiba**, hanem valódi extra dekoherencia.
 
 **A fizikai magyarázat:** az IBM kalibrált T₂-je ideális, statikus frekvenciát
@@ -99,11 +99,11 @@ időbeli drift is láthatóvá vált.
 
 | run | job | T₂_eff (µs) | T₂/T₂kal | T₁_eff (µs) | T₁/T₁kal |
 |---|---|---|---|---|---|
-| 1* | dba0q2gc… | 77,5 ± 12,9 | 0,639 | 285,5 ± 27,6 | 1,123 |
-| 2  | dba0u8hg… | 43,1 ± 9,0  | 0,355 | 211,6 ± 32,0 | 0,832 |
-| 3  | dba0v8hg… | 140,8 ± 10,7| 1,161 | 272,6 ± 24,0 | 1,072 |
-| 4  | dba1000c… | 117,7 ± 12,5| 0,971 | 309,3 ± 24,0 | 1,217 |
-| 5  | dba10os2… | 69,1 ± 9,0  | 0,570 | 290,3 ± 13,2 | 1,142 |
+| 1* | dba0q2gc77vs738252kg | 77,5 ± 12,9 | 0,639 | 285,5 ± 27,6 | 1,123 |
+| 2  | dba0u8hgv2cc73e66p10 | 43,1 ± 9,0  | 0,355 | 211,6 ± 32,0 | 0,832 |
+| 3  | dba0v8hgv2cc73e66q5g | 140,8 ± 10,7| 1,161 | 272,6 ± 24,0 | 1,072 |
+| 4  | dba1000c77vs73825a6g | 117,7 ± 12,5| 0,971 | 309,3 ± 24,0 | 1,217 |
+| 5  | dba10os24mrc7384npq0 | 69,1 ± 9,0  | 0,570 | 290,3 ± 13,2 | 1,142 |
 
 \* run 1 a job ID-ből visszakeresve (a parser romlott el, nem a mérés).
 
@@ -119,13 +119,48 @@ időbeli drift is láthatóvá vált.
    futásról futásra.
 
 **5 futás átlaga:** T₂_eff = **89,6 ± 17,5 µs (SEM)** = 0,74 ± 0,15 × T₂kal.
-A kalibrálttól való eltérés 6× SEM → **statisztikailag szignifikáns**.
+A kalibrálttól való eltérés 31,6 µs = **1,8 SEM** (p ≈ 0,07) — ez *irányadó*, nem döntő;
+a döntő bizonyíték nem az átlag eltolódása, hanem a **futások közti ingadozás**
+(χ² = 60,9, df = 4, p ≈ 2·10⁻¹²).
 
 > A 77,5 µs tehát **egy drift-minimum**, nem „a" T₂. Az igazi kép: az echo-
 > korlátozott T₂ a mérés idején **kb. 90 µs** volt, de futásról futásra
-> 40–140 µs között szóródott. Ez pont az a jelenség, amit a QDS vizsgálni akart.
+> 43–141 µs között szóródott. Ez pont az a jelenség, amit a QDS vizsgálni akart.
 
 ---
+
+## FÁZIS 6 — Kód- és dokumentáció-rendezés (2026-11-01)
+
+A mérés után a repo átvizsgálása **négy olyan hibát** talált, amely a
+számokat nem érintette, de a reprodukálhatóságot és a hitelességet igen:
+
+1. **Ellentmondó τ-tengely ítélet.** A `qds_analyze.py` a **T2-arányból**
+   (`0,639`) kiírta, hogy *„ELTÖRÉS — a platform dt-je NEM a QPU valódi
+   időzítése”*, miközben a krónika ugyanarra az adatra a **kontroll karból**
+   helyesen *„RENDBEN”*-t kapott. A T2-arány épp a vizsgált effektus, ezért
+   abból tengelyt ítélni önellentmondás volt. Most egyetlen függvény
+   (`qds.model.axis_verdict`) dönt, kizárólag a kontroll karból.
+2. **Nem reprodukálható állítások.** A `qds_detectability.py` és a
+   `qds_wavezz_repeat.py` **beégetett számokkal** dolgozott, a `qds_analyze.py`
+   pedig a T2-hibát 4,4σ-nak írta (helyesen **3,2σ**), a krónika 6× SEM-et
+   (helyesen **1,8 SEM**, p ≈ 0,07). A χ²-tesztek most a nyers adatokból
+   számolnak, és a `tests/` ellenőrzi, hogy a publikált értékek változatlanok.
+3. **Duplikált konstansok.** A backend, a qubit, a τ-rács és a θ **nyolc
+   fájlban** volt beégetve. Most a `src/qds/constants.py` az egyetlen forrás;
+   a `theta/phi/lam` szándékosan explicit konstans, hogy a publikált
+   `template_sha256` ne függjön a numpy RNG-implementációjától. A
+   `tests/test_template.py` ellenőrzi, hogy a kódból újraszámolt hash
+   **egyezik** a commitolt `results/circuit_hashes.json`-nal.
+4. **Elavult API-k.** A `SamplerV2` a qiskit-ibm-runtime 0.50-től deprecated;
+   a `delay()` egysége a hardveres áramkörben `us` (a szimulátorban `dt`).
+   A közös `qds.ibm.sampler()` az új `executor_sampler.Sampler`-t használja,
+   régi verzióknál `SamplerV2`-re esik vissza.
+
+Emellett: a csomagolás javítva (`pip install .` eddig a `qam_core.py`-t a
+site-packages gyökerébe tette, a `qds` csomagot pedig nem telepítette), a
+CI minden Python-fájlt fordít és lefuttatja a kiértékelő szkripteket
+(`git diff --exit-code` — ha a commitolt eredmény elcsúszik, a CI elbukik),
+a token-útvonal már nem Windows-specifikus (`D:\codex\…` kikerült).
 
 ## MIT KELL TUDNI, HOGY NE ÉRTÉKELJÜK TÚLZOTTAN
 

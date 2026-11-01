@@ -70,8 +70,41 @@ Azonos hash minden futásban ⇒ azonos fizikai lánc épült.
 
 ## 4. Kiértékelés: `results/multirun_stats.json`
 
-A több futás statisztikája: futásonkénti P(0), átlag ± szórás, illesztett
-T₂/T₁ futásonként, monotoniateszt futásonként.
+A több futás statisztikája — a `qds_multirun_stats.py` generálja a
+`raw_counts_all_runs.json`-ból (nem beégetett számokból):
+
+```json
+{
+  "n_runs": 5,
+  "t1_calibrated_us": 254.16, "t2_calibrated_us": 121.26,
+  "job_ids": ["dba0q2gc77vs738252kg", "…"],
+  "taus_us": [0, 10, 25, 50, 100, 200, 400, 800],
+  "echo_p0_per_run":  {"0": [99.51, 98.83, …], "10": [93.46, …]},
+  "echo_mean_pct": [99.24, 93.18, …], "echo_std_pct": [0.25, 1.23, …],
+  "ctrl_p0_per_run":  {"0": [14.45, …]},
+  "per_run": [
+    {"run": 1, "job_id": "…", "t2_eff_us": 77.5, "t2_stderr_us": 12.9,
+     "t1_eff_us": 285.5, "t1_stderr_us": 27.6,
+     "t2_ratio": 0.639, "t1_ratio": 1.123}
+  ],
+  "t2_eff_per_run_us": [77.5, 43.1, 140.8, 117.7, 69.1],
+  "t2_eff_mean_us": 89.63, "t2_eff_std_us": 39.18, "t2_eff_sem_us": 17.52,
+  "t1_eff_per_run_us": [285.5, 211.6, …],
+  "t1_eff_mean_us": 273.86, "t1_eff_std_us": 37.21,
+  "monotonia_runs_ok": {"echo": 5, "ctrl": 5}
+}
+```
+
+> A `t2_fitted_us` / `tau_axis_ratio` mezők a korábbi verzióban a
+> `qam_echo_t2_results.json`-ban voltak; a τ-tengely ítélete most a kontroll
+> karból jön (`tau_axis_ratio_t1`, `tau_axis_ok`), a T2-arány pedig
+> `t2_ratio` néven szerepel — hogy ne lehessen összetéveszteni a kettőt.
+
+## 5. Kiértékelt futás: `results/qam_echo_t2_results.json`
+
+A `qds_analyze.py` kimenete: a mért és modell P(0) görbék, a két kar
+illesztett időállandója, a τ-tengely ítélete, az arány-különbség
+szignifikanciája, a Wilson-féle 95 %-os intervallumok és a nyers számlálók.
 
 ## Megjegyzések a nyers formához
 
@@ -83,3 +116,10 @@ T₂/T₁ futásonként, monotoniateszt futásonként.
   A τ-tengelyt ezért a kontroll kar arbitrálja, nem a delay hossza.
 - A `p0_pct` a `counts` származéka; ha kétszer számolsz, mindkettő legyen
   meg — a `counts` az elsődleges.
+- A `result_run1_kingston_1024.json` **nem külön fájl**, csak a
+  `raw_counts_all_runs.json` kulcsa: az első futás adatai a
+  `qam_echo_dba0q2gc77vs738252kg.json`-ból (job ID-ból) állnak elő.
+- A `p0` a job-visszakeresésben (`qam_echo_<JOB>.json` → `rows[].p0`) és a
+  kiértékelésben is százalék; a `result_run*.json`-ban a neve `p0_pct`.
+  Ugyanaz a mennyiség, két fájltípusban két néven — a `qds.data.p0_series`
+  kezeli mindkettőt.

@@ -16,9 +16,9 @@
 |---|---------|-----------|
 | 1 | **A pipeline működik**: token, venv, áramkör, beküldés, eredmény-parsol, T₂-illesztés | 5/5 futás sikeres, 0 elveszett adat |
 | 2 | **A mérés érvényes**: kontroll monoton nő, echo monoton csökken, τ=0 értékek egyeznek | 5/5 mindkét monotonia-teszt IGEN |
-| 3 | **A τ-tengely helyes**: a kontroll kar T₁-aránya 1,08 ± 0,14 (konzisztens 1,0-val) | A T₁ és T₂ arányok különbsége 3,18σ → nem időskála |
-| 4 | **Az echo-korlátozott T₂ < kalibrált T₂**: 89,6 ± 17,5 µs vs 121,3 µs | 5 futás átlaga, SEM = 17,5 µs, eltérés 1,80 SEM |
-| 5 | **A T₂-effektív futásról futásra ingadozik**: szórás 39 µs, tartomány 43–141 µs | Ez 3,6× nagyobb, mint a futásonkénti illesztési hiba |
+| 3 | **A τ-tengely helyes**: a kontroll kar T₁-aránya 1,077 (5 futás átlaga) / 1,123 ± 0,109 (run 1, a hibán belül) | A T₁- és T₂-arány különbsége run 1-ben 0,484 = **3,2σ** → nem időskála |
+| 4 | **Az echo-korlátozott T₂ < kalibrált T₂**: 89,6 ± 17,5 µs vs 121,3 µs | 5 futás átlaga, SEM = 17,5 µs, az eltérés 31,6 µs = **1,81 SEM** (p ≈ 0,07, egymintás t) — *irányadó, nem döntő* |
+| 5 | **A T₂-effektív futásról futásra ingadozik**: szórás 39,2 µs, tartomány 43,1–140,8 µs | Heterogenitás-χ² = 60,9, df = 4, p ≈ 2·10⁻¹² → nem magyarázható a futásonkénti illesztési hibával (a szórás 3,6× az átlagos hibának) |
 
 ## Mit NEM bizonyít
 
@@ -42,12 +42,13 @@ Shots:      1024 / áramkör
 
 Kalibrált:  T₁ = 254,16 µs   T₂ = 121,26 µs
 Mért átlag: T₁_eff = 273,8 ± 37,2 µs (arány 1,08)
-            T₂_eff = 89,6 ± 39,2 µs (szórás), SEM = 17,5 µs (arány 0,74)
+            T₂_eff = 89,6 ± 39,2 µs (szórás), SEM = 17,5 µs (arány 0,74 ± 0,15)
+            χ²(T₂) = 60,9 (df=4, p≈2·10⁻¹²)   χ²(T₁) = 7,7 (df=4, p=0,10)
 ```
 
 ## Összefoglalás egy mondatban
 
 > Az 5 futás azt bizonyítja, hogy a QDS pipeline éles IBM hardveren működik,
-> és a random-axis U-delay-U-dagger visszateresi kar T₂-je **szignifikánsan és instabilan** kisebb,
+> és a random-axis U-delay-U† visszatérési kar T₂-je **kisebb és futásról futásra ingadozik**,
 > mint a kalibrált T₂ — de a jelenség önmagában nem új, és a Hope
 > architektúráról semmit nem mond.

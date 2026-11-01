@@ -1,120 +1,112 @@
-# -*- coding: utf-8 -*-
+"""QDS — dt-igazolás a MÁR MEGFIGYELT jobokból (KVÓTA NÉLKÜL).
+
+Kérdés: a platform ``dt = 4 ns``-ot ír (250 MHz), ami pulzálási
+mintavételi rátaként irreális egy ~5 GHz-es qubitnél. A valódi, fizikai
+időzítést az ISA-metaadatok és a mért késleltetések hossza árulja el.
+
+A szkript **nem indít új jobot** → nem fogyaszt kvótát. Két forrásból dolgozik:
+
+1. `backend.target` (élő, ha van token): ``dt``, ``granularity``,
+   ``pulse_alignment`` és a kapuk dt-hossza;
+2. a repóban lévő ``results/qam_echo_*.json`` fájlok ``isa`` mezője
+   (offline is működik).
+
+Fontos: a ``delay`` τ-t **fizikai időben (µs)** adjuk meg, és a transzpiler
+konvertálja a cél dt-jével, ezért a τ-tengely konverziója konzisztens
+(ellenőrzés: ``qds_env_check.py``). A dt nominális volta miatt a τ-tengely
+**empirikus** referenduma továbbra is a kontroll kar (csak T1-től függ).
+
+Használat::
+
+    python qds_dt_probe.py [--offline]
 """
-QDS — dt-igazolas a MAR MEGFIZETT jobokból (KVÓTA NÉLKÜL)
-==========================================================
-Kerdes: a platform dt=4 ns-ot ir. 4 ns = 250 MHz -> fizikailag
-NEM LEHET egy 5 GHz-os qubit sampling rate-je. A valodi dt valoszinusuleg
-~0.222 ns (Heron r2). Ezt a mar befizetett jobok ISA-k-circuitjeinek
-muvelet-idotartamaibol lehet eldonteni:
 
-  ha az sx gate 40 dt es a valodi hossza 40 * 0.222 ns = 8.9 ns
-  -> a QPU 0.222 ns/dt-vel szamol, a 4 ns csak egy nominalis default.
+import argparse
+import glob
+import json
+import os
+import sys
 
-NEM indit uj jobot -> nem fogyaszt kvotat.
-"""
-import json, os
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SRC = os.path.join(_HERE, "src")
+if os.path.isdir(_SRC) and _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-TARGET_BACKEND = os.environ.get('QDS_BACKEND', 'ibm_kingston')
+from qds.constants import BACKEND_NAME  # noqa: E402
 
-
-def svc_connect():
-    from qiskit_ibm_runtime import QiskitRuntimeService
-    path = os.environ.get('IBM_TOKEN_PATH', os.path.join(HERE, 'ibm_token.json'))
-    with open(path, encoding='utf-8') as f:
-        token = json.load(f)['apikey']
-    return QiskitRuntimeService(channel='ibm_quantum_platform', token=token,
-                                instance='auto')
+# A Heron r2 valószínű tényleges mintavételi lépése (összehasonlítási alap).
+CANDIDATE_DTS = (2.222e-10, 4e-9)
 
 
-def main():
-    svc = svc_connect()
-    backend = svc.backend(name=TARGET_BACKEND)
-    rep_dt = backend.dt
-    print(f'{TARGET_BACKEND}: backend.dt = {rep_dt} s ({rep_dt*1e9:.3f} ns)')
-    print('=' * 72)
-
-    # --- 1. probaljuk a pulse defaults-ot (ha elerheto) ----------------------
-    try:
-        d = backend.defaults()
-        print(f'defaults.dt          = {d.dt}')
-        print(f'defaults.granularity = {d.granularity}')
-        print(f'defaults.instruction_durations szamalanak kulcsai: '
-              f'{list(d.instruction_durations.keys())[:8]}')
-        try:
-            for k, v in d.instruction_durations.items():
-                for q, dur in v.items():
-                    print(f'   {k} q{q}: {dur} dt -> {dur*d.dt*1e9:.2f} ns')
-                if k == 'sx':
-                    break
-        except Exception as e:  # noqa: BLE001
-            print('  (duration-reszletek nem olvashatok:', e, ')')
-    except Exception as e:  # noqa: BLE001
-        print(f'defaults() nem erheto el ({type(e).__name__}: {e})')
-    print('-' * 72)
-
-    # --- 2. a mar befizetett jobok ISA circuitjei ----------------------------
-    try:
-        jobs = svc.jobs(limit=8)
-    except Exception as e:  # noqa: BLE001
-        print(f'jobs() nem elerheto: {e}')
-        jobs = []
-    print(f'Korábbi jobok: {len(jobs)}')
-    proven = False
-    for job in jobs:
-        print(f'\n--- job {job.job_id()}  status={job.status()} '
-              f'backend={job.backend().name}')
-        if job.status() != 'DONE':
-            continue
-        try:
-            res = job.result()
-        except Exception as e:  # noqa: BLE001
-            print(f'   result nem elerheto: {e}')
-            continue
-        prims = res[0] if isinstance(res, (list, tuple)) else res
-        meta = getattr(prims, 'metadata', None)
-        isa = (meta or {}).get('isa')
-        if not isa:
-            print('   nincs ISA metadata ebben a jobban')
-            continue
-        print(f'   target.dt az ISA-ban: {isa.get("dt")}  '
-              f'granularity: {isa.get("granularity")}')
-        for circ in isa.get('circuits', [])[:1]:
-            ops = circ.get('operations', [])
-            print(f'   {len(ops)} muvelet, keselyozok: '
-                  f'{circ.get("name")}')
-            seen = {}
-            for op in ops:
-                key = op.get('name')
-                if key in ('barrier', 'measure', 'delay'):
-                    continue
-                seen.setdefault(key, op.get('duration'))
-            for k, dur in seen.items():
+def _print_target(backend, name):
+    tgt = backend.target
+    print(f"Backend: {name}")
+    print(f"  target.dt            = {tgt.dt}")
+    print(f"  target.granularity   = {tgt.granularity}")
+    print(f"  target.pulse_alignment = {tgt.pulse_alignment}")
+    if tgt.dt:
+        for gate in ("sx", "x", "rz"):
+            try:
+                inst = tgt.operation_from_name(gate)
+                dur = getattr(inst, "duration", None)
                 if dur:
-                    for cand in (2.222e-10, 4e-09):
-                        ns = dur * cand * 1e9
-                        print(f'      {k:<8} {dur:>5} dt = {ns:8.2f} ns '
-                              f'(ha dt={cand*1e9:.3f} ns)')
-            if seen and not proven:
-                proven = True
-        # ugyanott a delay muvelet hossza a sajat fizikai tau-nk?
-        for circ in isa.get('circuits', []):
-            for op in circ.get('operations', []):
-                if op.get('name') == 'delay' and op.get('duration'):
-                    print(f'   DELAY {op["duration"]} dt; '
-                          f'ha dt=0.222ns -> '
-                          f'{op["duration"]*2.222e-10*1e6:.3f} us, '
-                          f'ha dt=4ns -> {op["duration"]*4e-9*1e6:.3f} us')
-                    break
-            else:
+                    print(f"  {gate:<3} duration = {dur} dt "
+                          f"({dur * tgt.dt * 1e9:.2f} ns a target dt-jével, "
+                          f"{dur * CANDIDATE_DTS[0] * 1e9:.2f} ns "
+                          f"dt=0.222 ns mellett)")
+            except Exception:
                 continue
-            break
-
-    print('=' * 72)
-    print('Ha az sx kb. 8-9 ns-nak adodik dt=0.222 ns-sel, akkor a platform')
-    print('4 ns-os dt-je NEM az igazi idozitas -> a tau-t MICROSECUND-BAN kell')
-    print('megadni az aramkorben, es a transz[p]ilerrel kell dt-vale konvertalni.')
 
 
-if __name__ == '__main__':
-    main()
+def _scan_local_results(results_dir):
+    """A repóban lévő eredményfájlok ISA-metaadatai (token nélkül is)."""
+    print("-" * 72)
+    files = sorted(glob.glob(os.path.join(results_dir, "qam_echo_*.json")))
+    if not files:
+        print("Nincs helyi eredményfájl (results/qam_echo_*.json).")
+        return
+    for fn in files:
+        with open(fn, encoding="utf-8") as f:
+            data = json.load(f)
+        isa = data.get("isa") or {}
+        print(f"{os.path.basename(fn)}: isa.dt={isa.get('dt')} "
+              f"granularity={isa.get('granularity')}")
+    dry = os.path.join(results_dir, "qam_echo_t2_dryrun.json")
+    if os.path.exists(dry):
+        with open(dry, encoding="utf-8") as f:
+            diag = json.load(f).get("diagnostics", {})
+        print(f"qam_echo_t2_dryrun.json: target_dt={diag.get('target_dt')} "
+              f"({(diag.get('target_dt') or 0) * 1e9:.3f} ns)")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="QDS dt-vizsgálat")
+    parser.add_argument("--offline", action="store_true",
+                        help="token nélkül: csak a helyi eredmények ISA-mezői")
+    parser.add_argument("--backend", default=BACKEND_NAME)
+    args = parser.parse_args(argv)
+
+    if not args.offline:
+        try:
+            from qds.ibm import get_backend
+            _print_target(get_backend(args.backend), args.backend)
+            print("=" * 72)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Nincs használható token ({exc.__class__.__name__}) → "
+                  "csak a helyi adatok.")
+            print("=" * 72)
+
+    _scan_local_results(os.path.join(_HERE, "results"))
+    print("=" * 72)
+    print("Értelmezés:")
+    print("  • A `delay` τ-t fizikai időben (µs) kapja, a transzpiler a cél dt-jével")
+    print("    konvertálja → a τ-tengely konverziója konzisztens.")
+    print("  • A dt nominális, ezért a τ-tengely EMPIRIKUS referenduma a kontroll")
+    print("    kar (csak T1-től függ): qds_axis_arbitration.py.")
+    return 0
+
+
+if __name__ == "__main__":
+    from qds.cli import run
+
+    sys.exit(run(main))

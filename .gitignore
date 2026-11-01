@@ -1,22 +1,30 @@
-# --- TITOK: az IBM API-kulcs SOHA ne keruljon a repoba -------------------
-# A token a sajat kulcsod: a fenti fajl a helyi, nem a nyilvanos hely.
+# --- TITOK: az IBM API-kulcs SOHA ne kerüljön a repóba --------------------
 ibm_token.json
 *.token
 apikey.json
+.env
 
-# --- Python kornyezet --------------------------------------------------
+# --- Python környezet -----------------------------------------------------
 .venv-qds/
 .venv/
 venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
 *.egg-info/
 build/
 dist/
+site/
 
-# --- IDE / OS ----------------------------------------------------------
+# --- IDE / OS -------------------------------------------------------------
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- Helyi, felülíró eredmények ------------------------------------------
+# A `results/` commitolt (ez a mérés bizonyítéka). Csak a helyi debug-futások
+# és a szimulátor újrafuttatásai ne szennyezzék a git állapotot.
+results/*_local.json
+results/*.tmp

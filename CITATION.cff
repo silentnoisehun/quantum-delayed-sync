@@ -1,13 +1,22 @@
 cff-version: 1.2.0
-title: Quantum Delayed Synchronization (QDS)
+title: Quantum Delayed Synchronization (QDS) - Hahn-Echo T2 Sweep on IBM Hardware
+message: "If you use this software or the measurement data, please cite it as below."
+type: software
 authors:
   - family-names: R
     given-names: Máté
     orcid: https://orcid.org/0009-0003-3986-6039
     affiliation: Hope Ecosystem
-type: software
-version: 0.1.0
-date-released: 2026-10-18
+version: 0.2.0
+date-released: 2026-11-01
 license: MIT
-repository-code: https://github.com/silentnoisehun/quantum-sync
-keywords: [quantum, qds, hahn-echo, t2, synchronization, qam]
+repository-code: https://github.com/silentnoisehun/quantum-delayed-sync
+url: https://github.com/silentnoisehun/quantum-delayed-sync
+keywords:
+  - quantum
+  - qds
+  - hahn-echo
+  - t2
+  - decoherence
+  - synchronization
+  - qam

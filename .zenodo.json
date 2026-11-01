@@ -1,6 +1,7 @@
 {
   "metadata": {
-    "title": "Quantum Delayed Synchronization (QDS) - Hahn-Echo T2 Sweep",
+    "title": "Quantum Delayed Synchronization (QDS) - Hahn-Echo T2 Sweep on IBM Hardware",
+    "description": "<p>U-delay-U&#8224; (Hahn-echo) versus U-delay (control) T2 sweep on IBM Quantum hardware (ibm_kingston, qubit 91), 5 runs with 1024 shots per circuit. Includes raw counts, evaluated statistics, the circuit template SHA-256, the measurement chronicle and the referee limits.</p>",
     "creators": [
       {
         "name": "R, Máté",
@@ -9,7 +10,8 @@
       }
     ],
     "license": "MIT",
-    "version": "0.1.0",
-    "upload_type": "software"
+    "version": "0.2.0",
+    "upload_type": "software",
+    "keywords": ["quantum", "qds", "hahn-echo", "t2", "decoherence", "ibm-quantum"]
   }
 }
