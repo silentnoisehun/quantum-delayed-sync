@@ -60,6 +60,30 @@ def get_backend(name, token=None):
     return service(token).backend(name=name)
 
 
+def offline_backend():
+    """Fake backend áramkör-építéshez/konverzióhoz — token és hálózat nélkül.
+
+    Elsőként a ``FakeKingston``-t próbálja: ez a valódi Heron r2 target
+    snapshotja (156 qubit, dt = 4 ns, granularity = 1), tehát a mérés
+    környezetét utánozza. Ha a ``qiskit-ibm-runtime`` nincs telepítve (csak a
+    szimulátoros extra), a plain qiskit ``GenericBackendV2``-jére esik vissza —
+    így a környezet-ellenőrzés telepítés nélküli gépeken is lefut.
+
+    Returns:
+        tuple: ``(backend, label)`` — a label a kiíráshoz, hogy látszódjon,
+        melyik (nem valódi) backend adatait látod.
+    """
+    try:
+        from qiskit_ibm_runtime.fake_provider import FakeKingston
+
+        return FakeKingston(), "FakeKingston (Heron r2 target snapshot)"
+    except ImportError:
+        from qiskit.providers.fake_provider import GenericBackendV2
+
+        return (GenericBackendV2(num_qubits=156, seed=42),
+                "GenericBackendV2 (qiskit, 156 qubit — durvább közelítés)")
+
+
 def sampler(mode):
     """Visszaad egy Sampler-t a megadott backend/target módban.
 

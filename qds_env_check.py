@@ -35,18 +35,21 @@ def _versions():
 
 def _backend(offline):
     """A valódi backend, vagy offline módban a beépített fake target."""
-    from qiskit_ibm_runtime.fake_provider import FakeKingston
+    from qds.ibm import offline_backend
 
     if offline:
-        print("OFFLINE mód: FakeKingston target használva (nem valódi backend)")
-        return FakeKingston(), "FakeKingston (Heron r2 snapshot)"
+        backend, label = offline_backend()
+        print(f"OFFLINE mód: {label} használva (NEM valódi backend)")
+        return backend, label
 
     try:
         from qds.ibm import get_backend
         return get_backend(BACKEND_NAME), BACKEND_NAME
     except (FileNotFoundError, ValueError) as exc:
         print(f"Nincs használható token ({exc.__class__.__name__}) → offline mód")
-        return FakeKingston(), "FakeKingston (Heron r2 snapshot)"
+        backend, label = offline_backend()
+        print(f"OFFLINE mód: {label} használva (NEM valódi backend)")
+        return backend, label
 
 
 def main(argv=None):
