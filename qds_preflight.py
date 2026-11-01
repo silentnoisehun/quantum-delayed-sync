@@ -1,119 +1,130 @@
-# -*- coding: utf-8 -*-
+"""QDS — hardver elővizsgálat (KVÓTA NÉLKÜL).
+
+Ez a szkript **nem** futtat QPU jobot, tehát nem fogyaszt IBM kvótát.
+Csak a backend-listát, a qubit-adatokat és a kvótát állapítja meg.
+
+Használat::
+
+    python qds_preflight.py
 """
-QDS — hardver elővizsgálat (KVÓTA NÉLKÜL)
-========================================
-Ez a script NEM futtat QPU jobot: nem fogyaszt IBM kvótát.
-Csak a backend-lista, a qubit-adatok és a kvóta megállapítása történik.
 
-Használat:  .venv-qds\\Scripts\\python.exe qds_preflight.py
-"""
-import json, os, sys
+import argparse
+import os
+import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-TARGET_BACKEND = os.environ.get('QDS_BACKEND', 'ibm_kingston')
-QUBIT = int(os.environ.get('QDS_QUBIT', '91'))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SRC = os.path.join(_HERE, "src")
+if os.path.isdir(_SRC) and _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
-
-def load_token():
-    path = os.environ.get(
-        'IBM_TOKEN_PATH', os.path.join(HERE, 'ibm_token.json'))
-    with open(path, encoding='utf-8') as f:
-        return json.load(f)['apikey']
+from qds.constants import BACKEND_NAME, QUBIT, SIM_T2_US  # noqa: E402
+from qds.ibm import CHANNEL, load_token  # noqa: E402
 
 
-def connect():
-    """Kiprobalja a modern (ibm_quantum_platform) es a legacy (ibm_quantum) csatornat."""
+def connect(token=None):
+    """Csatlakozás; modern csatornán, hiba esetén a legacy csatornával."""
     from qiskit_ibm_runtime import QiskitRuntimeService
-    token = load_token()
+
+    token = token or load_token()
     errors = []
-    for channel in ('ibm_quantum_platform', 'ibm_quantum'):
+    for channel in (CHANNEL, "ibm_quantum"):
         try:
             svc = QiskitRuntimeService(channel=channel, token=token)
-            print(f'[OK] csatorna: {channel}')
+            print(f"[OK] csatorna: {channel}")
             return svc
-        except Exception as e:  # noqa: BLE001
-            errors.append(f'{channel}: {type(e).__name__}: {e}')
-    print('[HIBA] egyik csatorna sem mukodik:')
-    for e in errors:
-        print('   -', e)
-    sys.exit(2)
+        except Exception as exc:
+            errors.append(f"{channel}: {type(exc).__name__}: {exc}")
+    print("[HIBA] egyik csatorna sem működik:")
+    for err in errors:
+        print("   -", err)
+    return None
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="QDS hardver elővizsgálat")
+    parser.add_argument("--backend", default=os.environ.get("QDS_BACKEND",
+                                                            BACKEND_NAME))
+    parser.add_argument("--qubit", type=int,
+                        default=int(os.environ.get("QDS_QUBIT", QUBIT)))
+    args = parser.parse_args(argv)
+
     svc = connect()
-    print('=' * 68)
+    if svc is None:
+        return 2
+    print("=" * 68)
 
-    # --- 1. Elerheto eszkozok -------------------------------------------------
+    # --- 1. Elérhető eszközök ---
     try:
         backends = list(svc.backends())
-        print(f'Eszkozok szama: {len(backends)}')
+        print(f"Eszközök száma: {len(backends)}")
         for b in backends:
             try:
-                print(f'   - {b.name:<28} {b.num_qubits:>4} qubit  '
-                      f'{(b.status_msg or "").strip()[:40]}')
-            except Exception:  # noqa: BLE001
-                print(f'   - {b.name}')
-    except Exception as e:  # noqa: BLE001
-        print('backend-lista hiba:', e)
-        backends = []
+                status = (b.status_msg or "").strip()[:40]
+                print(f"   - {b.name:<28} {b.num_qubits:>4} qubit  {status}")
+            except Exception:
+                print(f"   - {getattr(b, 'name', b)}")
+    except Exception as exc:
+        print("backend-lista hiba:", exc)
 
-    # --- 2. A keresett backend ------------------------------------------------
+    # --- 2. A keresett backend ---
     name = None
-    for cand in (TARGET_BACKEND, 'ibm_kingston', 'ibm_fez', 'ibm_marrakesh'):
+    for cand in (args.backend, BACKEND_NAME, "ibm_fez", "ibm_marrakesh"):
         try:
             svc.backend(name=cand)
             name = cand
             break
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
     if name is None:
-        print(f'\n[HIBA] "{TARGET_BACKEND}" nem erheto el.')
-        print('       Valasztani kell egy elerheto devot a fenti listabol.')
-        sys.exit(3)
+        print(f"\n[HIBA] \"{args.backend}\" nem érhető el, és nincs tartalék sem.")
+        print("       Válassz elérhető eszközt a fenti listából (--backend).")
+        return 3
 
     backend = svc.backend(name=name)
-    print('=' * 68)
-    print(f'Backend: {name}  ({backend.num_qubits} qubit)')
-    dt = getattr(backend, 'dt', None)
-    print(f'dt = {dt*1e9:.4f} ns' if dt else 'dt = ismeretlen')
+    print("=" * 68)
+    print(f"Backend: {name}  ({backend.num_qubits} qubit)")
+    dt = getattr(backend, "dt", None)
+    print(f"dt = {dt * 1e9:.4f} ns (nominális)" if dt else "dt = ismeretlen")
 
-    # --- 3. A cel-qubit allapota ---------------------------------------------
+    # --- 3. A cél-qubit állapota ---
     try:
         st = backend.status()
-        print(f'Allapot: {st.status_msg.strip()}  ({st.operational})')
-    except Exception:  # noqa: BLE001
+        print(f"Állapot: {st.status_msg.strip()}  ({st.operational})")
+    except Exception:
         pass
 
+    qubit = args.qubit
     try:
-        props = backend.qubit_properties(QUBIT)
+        props = backend.qubit_properties(qubit)
         if props is None:
-            print(f'Qubit {QUBIT}: NINCS tulajdonsag (nem mukodo?)')
+            print(f"Qubit {qubit}: NINCS tulajdonság (nem működő?)")
         else:
-            print(f'Qubit {QUBIT}: f={props.frequency/1e9:.4f} GHz  '
-                  f'T1={props.t1*1e6:.1f} us  T2={props.t2*1e6:.1f} us')
-            two_f = 1.0 / props.t2
-            print(f'   1/T2 = {two_f*1e6:.3f} 1/us   '
-                  f'-> a 143 us-os szimulator-felteves a valosagban '
-                  f'{143.0 / (props.t2*1e6):.2f}x')
-    except Exception as e:  # noqa: BLE001
-        print(f'Qubit {QUBIT} adata nem elerheto: {type(e).__name__}: {e}')
+            print(f"Qubit {qubit}: f={props.frequency / 1e9:.4f} GHz  "
+                  f"T1={props.t1 * 1e6:.1f} us  T2={props.t2 * 1e6:.1f} us")
+            print(f"   a szimulátor T2-feltevése ({SIM_T2_US:.0f} us) a "
+                  f"valósághoz képest {SIM_T2_US / (props.t2 * 1e6):.2f}×")
+    except Exception as exc:
+        print(f"Qubit {qubit} adata nem elérhető: {type(exc).__name__}: {exc}")
 
-    # --- 4. Kvota (ez meg MINDIG szabad) --------------------------------------
-    print('-' * 68)
+    # --- 4. Kvóta (ez még MINDIG szabad) ---
+    print("-" * 68)
     for label, fn in (
-        ('open plan (perc)', lambda: svc.remaining_job_minutes()),
-        ('usage', lambda: svc.usage()),
-        ('account', lambda: svc.my_account()),
+        ("open plan (perc)", lambda: svc.remaining_job_minutes()),
+        ("usage", lambda: svc.usage()),
+        ("account", lambda: svc.my_account()),
     ):
         try:
-            v = fn()
-            print(f'{label}: {v}')
-        except Exception as e:  # noqa: BLE001
-            print(f'{label}: nem elerheto ({type(e).__name__})')
+            print(f"{label}: {fn()}")
+        except Exception as exc:
+            print(f"{label}: nem elérhető ({type(exc).__name__})")
 
-    print('=' * 68)
-    print('ELOZEGES: kvota nem fogyott. Hardver job inditasahoz: --mode hardware')
+    print("=" * 68)
+    print("ELŐZETES: kvóta nem fogyott. Hardver job indításához: "
+          "hahn_echo_t2_qam.py --mode hardware --dry-run, majd --mode hardware")
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    from qds.cli import run
+
+    sys.exit(run(main))

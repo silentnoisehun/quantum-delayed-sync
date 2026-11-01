@@ -1,281 +1,296 @@
-# -*- coding: utf-8 -*-
+"""QDS — késleltetett echo T₂ mérés (szimulátor + IBM hardver).
+
+Mérés: ``U → delay(τ) → U†`` (echo kar) és ``U → delay(τ)`` (kontroll kar),
+8 τ-értéken, fix qubiten (alapból 91), ``ibm_kingston``.
+
+Módok:
+  ``--mode simulate``  lokális AerSimulator (ideális + zajos) — NEM hardver.
+  ``--mode hardware``  igazi IBM backend, ez **IBM kvótát használ**.
+  ``--dry-run``        hardver módban mindent felépít, de **nem küld** jobot.
+
+Példák::
+
+    python hahn_echo_t2_qam.py --mode simulate
+    python hahn_echo_t2_qam.py --mode hardware --dry-run
+    python hahn_echo_t2_qam.py --mode hardware --backend ibm_kingston --qubit 91
+
+A közös konstansok és modellek a ``src/qds`` csomagban vannak; a szögek és a
+τ-rács rögzítettek, mert a publikált áramkör-hash ezekből számolódik.
 """
-QDS — Késleltetett Echo T₂ mérés (Szimulátor)
-=============================================
-A Quantum Delayed Synchronization (QDS) sinkrontérének pilot mérése.
 
-Mérés: U -> varakozás(τ) -> U†  (echo), és U -> varakozás(τ)  (kontroll)
-τ-t sweepelve, fix qubit 91, ibm_kingston.
+import argparse
+import json
+import os
+import sys
 
-A szkript két módban fut:
-  MODE = 'simulate'  -> lokális AerSimulator (ideális + zajos), NEM hardver.
-                        A szimulátor számai NEM hardvermérések!
-  MODE = 'hardware'  -> igazi ibm_kingston, ez IBM kvótát használ!
-"""
-import json, os, sys, argparse
-import numpy as np
+# A `src/` a repo gyökeréhez képest van; közvetlen szkriptfuttatáskor is
+# elérhetővé kell tenni (telepített csomag esetén már importálható).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SRC = os.path.join(_HERE, "src")
+if os.path.isdir(_SRC) and _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
-SHOTS = 1024
-BACKEND_NAME = 'ibm_kingston'
-QUBIT = 91
-TAUS_US = [0, 10, 25, 50, 100, 200, 400, 800]
-DT_SEC = 1 / 4.5e9
+from qds.circuits import build_circuits  # noqa: E402
+from qds.constants import (  # noqa: E402
+    BACKEND_NAME,
+    CTRL_P0_AT_ZERO_PCT,
+    DT_SEC,
+    LAMBDA,
+    PHI,
+    QUBIT,
+    SHOTS,
+    SIM_1Q_ERR,
+    SIM_READOUT,
+    SIM_T1_US,
+    SIM_T2_US,
+    T1_CALIBRATED_US,
+    THETA,
+)
+from qds.model import analytic, fit_t1, fit_t2  # noqa: E402
 
-# Compatibility: try transpile, fallback to basic circuit building
-try:
-    from qiskit import transpile
-    HAS_TRANSPILE = True
-except ImportError:
-    HAS_TRANSPILE = False
-    print("Warning: qiskit.transpile not available, using basic circuit building")
+RESULTS_DIR = os.path.join(_HERE, "results")
 
-SIM_T1 = 242e-6
-SIM_T2 = 143e-6
-SIM_READOUT = 0.0098
-SIM_1Q_ERR = 3.5e-4
 
-np.random.seed(42)
-theta = float(np.random.uniform(0, 2*np.pi))
-phi = float(np.random.uniform(0, 2*np.pi))
-lam = float(np.random.uniform(0, 2*np.pi))
-print(f'Angles: theta={theta:.4f}, phi={phi:.4f}, lam={lam:.4f}')
-print(f'Várt kontroll P(0) tau=0-nál: cos^2(theta/2) = {np.cos(theta/2)**2*100:.2f}%')
-
-def tau_dt(tau_us, dt):
-    n = int(round(tau_us * 1e-6 / dt))
-    return int(16 * round(n / 16))
-
-def build_circuits(dt, unit='dt'):
-    """unit='dt'  -> a szimulator: ndt = 16-ra igazitott minta-szam
-       unit='us'  -> a HARDVER: a varakozas fizikai idoban marad, a
-                     transzpiler konvertalja dt-re a CEL backend dt-jevell.
-                     Igy a tau-tengely nem fugg a script hardcode-olt
-                     DT_SEC erteketol (ami 4.5 GHz-et feltelezett)."""
-    from qiskit import QuantumCircuit
-    out = []
-    for tau in TAUS_US:
-        dur = tau_dt(tau, dt) if unit == 'dt' else tau
-        qc_e = QuantumCircuit(1)
-        qc_e.u(theta, phi, lam, 0)
-        qc_e.barrier()
-        if dur > 0:
-            qc_e.delay(dur, 0, unit=unit)
-        qc_e.barrier()
-        qc_e.u(theta, phi, lam, 0).inverse()
-        qc_e.barrier()
-        qc_e.measure_all()
-        qc_c = QuantumCircuit(1)
-        qc_c.u(theta, phi, lam, 0)
-        qc_c.barrier()
-        if dur > 0:
-            qc_c.delay(dur, 0, unit=unit)
-        qc_c.barrier()
-        qc_c.measure_all()
-        out.append((tau, dur, qc_e, qc_c))
-    return out
-
-def analytic(tau, t1, t2):
-    c = np.cos(theta); s2 = np.sin(theta)**2
-    e1 = np.exp(-tau / t1) if t1 else 0.0
-    e2 = np.exp(-tau / t2) if t2 else 0.0
-    p_echo = 0.5 + 0.5 * (e2 * s2 + e1 * c * c + c * (1 - e1))
-    p_ctrl = 0.5 + 0.5 * (1 + (c - 1) * e1)
-    return p_echo * 100, p_ctrl * 100
-
-def run_simulate():
+def run_simulate(shots=SHOTS):
+    """Ideális + zajos szimuláció (median zajmodell, NEM a 91-es qubit)."""
     from qiskit import transpile
     from qiskit_aer import AerSimulator
     from qiskit_aer.noise import NoiseModel, ReadoutError, depolarizing_error
     from qiskit_aer.noise.passes import RelaxationNoisePass
+
     sim_ideal = AerSimulator()
-    dt = DT_SEC  # fix: 1/4.5e9 = 0.2222 ns
-    ro = ReadoutError([[1 - SIM_READOUT, SIM_READOUT], [SIM_READOUT, 1 - SIM_READOUT]])
+    ro = ReadoutError([[1 - SIM_READOUT, SIM_READOUT],
+                       [SIM_READOUT, 1 - SIM_READOUT]])
     nm = NoiseModel()
     nm.add_all_qubit_readout_error(ro)
-    nm.add_all_qubit_quantum_error(depolarizing_error(SIM_1Q_ERR, 1), ['sx', 'x'])
-    nm._custom_noise_passes.append(RelaxationNoisePass(t1s=[SIM_T1], t2s=[min(SIM_T2, 2 * SIM_T1)], dt=dt))
+    nm.add_all_qubit_quantum_error(depolarizing_error(SIM_1Q_ERR, 1), ["sx", "x"])
+    # A RelaxationNoisePass a target/duration nélküli utasításokat (rz, sx,
+    # barrier, measure) kihagyja — ez itt szándékos: csak a delay hanylik.
+    nm._custom_noise_passes.append(
+        RelaxationNoisePass(t1s=[SIM_T1_US * 1e-6],
+                            t2s=[min(SIM_T2_US, 2 * SIM_T1_US) * 1e-6],
+                            dt=DT_SEC)
+    )
     sim_noisy = AerSimulator(noise_model=nm)
-    print(f'dt={dt*1e9:.2f}ns T1={SIM_T1*1e6:.0f}us T2={SIM_T2*1e6:.0f}us')
+    print(f"dt={DT_SEC * 1e9:.2f} ns  T1={SIM_T1_US:.0f} us  T2={SIM_T2_US:.0f} us "
+          f"(MEDIAN modell — nem a {QUBIT}. qubit értéke)")
+
     rows = []
-    for tau, ndt, qc_e, qc_c in build_circuits(dt):
+    for tau, ndt, qc_e, qc_c in build_circuits(dt=DT_SEC, unit="dt"):
         res = {}
-        for label, sim in (('ideal', sim_ideal), ('noisy', sim_noisy)):
-            tqc_e = transpile(qc_e, sim, optimization_level=0, seed_transpiler=42)
-            tqc_c = transpile(qc_c, sim, optimization_level=0, seed_transpiler=42)
-            ce = sim.run(tqc_e, shots=SHOTS).result().get_counts()
-            cc = sim.run(tqc_c, shots=SHOTS).result().get_counts()
-            res[(label, 'e')] = ce.get('0', 0) / SHOTS * 100
-            res[(label, 'c')] = cc.get('0', 0) / SHOTS * 100
-        pe_th, pc_th = analytic(tau * 1e-6, SIM_T1, SIM_T2)
-        print(f'tau={tau:>4}us echo={res[("noisy","e")]:.2f}% ideal={res[("ideal","e")]:.2f}% ctrl={res[("noisy","c")]:.2f}%')
-        rows.append({'tau_us': tau, 'tau_dt': ndt, 'echo_noisy_pct': res[('noisy', 'e')],
-                     'echo_ideal_pct': res[('ideal', 'e')], 'ctrl_noisy_pct': res[('noisy', 'c')],
-                     'echo_expected_pct': pe_th, 'ctrl_expected_pct': pc_th})
+        for label, sim in (("ideal", sim_ideal), ("noisy", sim_noisy)):
+            for arm, qc in (("e", qc_e), ("c", qc_c)):
+                tqc = transpile(qc, sim, optimization_level=0, seed_transpiler=42)
+                counts = sim.run(tqc, shots=shots).result().get_counts()
+                res[(label, arm)] = counts.get("0", 0) / sum(counts.values()) * 100
+        pe_th, pc_th = analytic(tau, SIM_T1_US, SIM_T2_US)
+        print(f"tau={tau:>4}us  echo={res[('noisy', 'e')]:.2f}%  "
+              f"ideal={res[('ideal', 'e')]:.2f}%  ctrl={res[('noisy', 'c')]:.2f}%")
+        rows.append({
+            "tau_us": tau,
+            "tau_dt": ndt,
+            "echo_noisy_pct": res[("noisy", "e")],
+            "echo_ideal_pct": res[("ideal", "e")],
+            "ctrl_noisy_pct": res[("noisy", "c")],
+            "echo_expected_pct": float(pe_th),
+            "ctrl_expected_pct": float(pc_th),
+        })
     return rows
 
-def _fit_t2_eff(taus, echo_pcts, t1):
-    """Az echo görbe ILLESZTE a kalibrált T1-re -> T2_eff.
 
-    Ez a tau-tengely ÖNVIZSGÁLATA: ha a mért T2_eff egyezik a
-    kalibrált T2-vel (|axis| ~ 1), a tau skála helyes volt.
-    Ha a hardver a dt-vel mas arányban számolt, T2_eff a hibás
-    aránnyal lecsolgozik -> az arany a hiba foka. Nem kell újrafutni!
+def run_hardware(backend_name=BACKEND_NAME, qubit=QUBIT, shots=SHOTS,
+                 dry_run=False, token=None):
+    """Hardveres mérés (vagy dry-run, ami nem fogyaszt kvótát).
+
+    Returns:
+        tuple: ``(rows, diagnostics)``. Dry-run esetén ``rows`` üres.
     """
-    try:
-        from scipy.optimize import curve_fit
-    except ImportError:
-        return None, None, None
-    taus = np.asarray(taus, dtype=float) * 1e-6
-    echo = np.asarray(echo_pcts, dtype=float) / 100.0
-    c, s2 = np.cos(theta), np.sin(theta) ** 2
-
-    def model(t, t2):
-        e1 = np.exp(-t / t1) if t1 else np.ones_like(t)
-        e2 = np.exp(-t / t2)
-        return 0.5 + 0.5 * (e2 * s2 + e1 * c * c + c * (1 - e1))
-
-    mask = taus > 0
-    if mask.sum() < 3:
-        return None, None, None
-    try:
-        popt, _ = curve_fit(model, taus[mask], echo[mask],
-                            p0=[150e-6], bounds=([1e-8], [20e-3]))
-        pred = model(taus[mask], popt[0]) * 100
-        rms = float(np.sqrt(np.mean((echo[mask] * 100 - pred) ** 2)))
-        return float(popt[0]), rms, model(taus, popt[0]) * 100
-    except Exception:
-        return None, None, None
-
-
-def run_hardware(dry_run=False):
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    try:
-        from src.qam_core import QAM
-    except ImportError:
-        print('src/qam_core.py nem talalhato — QAM repo gyokereben kell futtatni!')
-        sys.exit(1)
     from qiskit import transpile
 
-    apikey_path = os.environ.get('IBM_TOKEN_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ibm_token.json'))
-    token = json.load(open(apikey_path, encoding='utf-8')).get('apikey')
-    qam = QAM(token=token, backend=BACKEND_NAME)
-    backend = qam.backend
+    from qds.ibm import get_backend, sampler
 
-    # A CEL QUBIT VALOS T1/T2-je — NEM median! Ez az analitikus referencia.
+    backend = get_backend(backend_name, token=token)
+
+    # A CÉL QUBIT VALÓS T1/T2-je — nem a backend mediánja. Ez az analitikus
+    # referencia, és a τ-tengely-arbitrációhoz is ez kell.
     t1 = t2 = None
     try:
-        props = backend.qubit_properties(QUBIT)
+        props = backend.qubit_properties(qubit)
         t1, t2 = props.t1, props.t2
-        print(f'Qubit {QUBIT} (kalibralt): T1={t1*1e6:.1f}us T2={t2*1e6:.1f}us')
-    except Exception as e:  # noqa: BLE001
-        print(f'qubit_properties nem elerheto ({e}) — median T1/T2 hasznalva')
+        print(f"Qubit {qubit} (kalibrált): T1={t1 * 1e6:.1f} us  T2={t2 * 1e6:.1f} us")
+    except Exception as exc:
+        print(f"qubit_properties nem elérhető ({exc}) — a kalibrált T1/T2 ismeretlen")
 
-    # A varakozas FIZIKAI IDOBAN (us) marad: igy a tau-tengely nem a
-    # script hardcode-olt DT_SECjetol fugg, hanem a CEL backend dt-jet
-    # konvertalja. A visszaadott ISA metadata elmondja, milyen dt-vel
-    # szamolt a szerver -> osszszehasonlithato a kalibracioval.
-    circuits = build_circuits(dt=None, unit='us')
-    isa_jobs = []
+    # A várakozás FIZIKAI IDŐBEN (µs) marad: így a τ-tengely nem a szkript
+    # hardkódolt dt-feltevésétől függ, hanem a cél backend dt-jét használja a
+    # transzpiler.
+    circuits = build_circuits(unit="us")
+    pubs = []
     for tau, dur, qc_e, qc_c in circuits:
-        for arm, qc in (('echo', qc_e), ('ctrl', qc_c)):
+        for arm, qc in (("echo", qc_e), ("ctrl", qc_c)):
             tqc = transpile(qc, backend, optimization_level=0,
-                            seed_transpiler=42, initial_layout=[QUBIT])
-            isa_jobs.append((tqc, {'tau_us': tau, 'arm': arm,
-                                   'delay_us': dur, 'depth': tqc.depth(),
-                                   'ops': dict(tqc.count_ops())}))
-    print(f'{len(isa_jobs)} circuits, {SHOTS} shots')
-    for qc, meta in isa_jobs[:4]:
+                            seed_transpiler=42, initial_layout=[qubit])
+            # A metadata a visszaadott eredményben is megjelenik, így a sorok
+            # nem függnek a beküldés sorrendjétől.
+            tqc.metadata = {"qds": {"tau_us": tau, "arm": arm, "delay_us": dur}}
+            pubs.append(tqc)
+
+    print(f"{len(pubs)} áramkör, {shots} shot/áramkör  ({backend_name}, qubit {qubit})")
+    for qc in pubs[:2]:
         for inst in qc.data:
-            if inst.operation.name == 'delay':
-                print(f'   pl. tau={meta["tau_us"]:>4}us {meta["arm"]}: '
-                      f'delay {inst.operation.duration} '
-                      f'{inst.operation.unit}')
+            if inst.operation.name == "delay":
+                meta = qc.metadata["qds"]
+                print(f"   pl. tau={meta['tau_us']:>4}us {meta['arm']}: "
+                      f"delay {inst.operation.duration} {inst.operation.unit}")
+
+    diag = {
+        "backend": backend_name,
+        "qubit": qubit,
+        "shots": shots,
+        "t1_calibrated_us": t1 * 1e6 if t1 else None,
+        "t2_calibrated_us": t2 * 1e6 if t2 else None,
+        "target_dt": _safe_dt(backend),
+    }
 
     if dry_run:
-        print('-' * 62)
-        print('DRY-RUN: submit NEM tortent, kvota nem fogyott.')
-        print(f'dt a targetben: {backend.target.dt} '
-              f'({backend.target.dt*1e9:.4f} ns)')
-        return [], {'dry_run': True, 'circuits': len(isa_jobs),
-                    'target_dt': backend.target.dt,
-                    't1_calibrated': t1, 't2_calibrated': t2}
+        # Szándékosan NEM hívjuk a sampler.run()-t: a dry-run nem fogyaszt
+        # kvótát, és nem is hoz létre jobot.
+        print("-" * 62)
+        print("DRY-RUN: beküldés NEM történt, kvóta nem fogyott.")
+        print(f"dt a targetben: {diag['target_dt']} s")
+        diag["dry_run"] = True
+        diag["circuits"] = len(pubs)
+        return [], diag
 
-    from qiskit_ibm_runtime import SamplerV2
-    for qc, meta in isa_jobs:
-        # a metadata a job VISSZAADOTT eredmenyeben is megjelenik, igy a
-        # sorok nem kell a bekuldes sorrendjere tajekozodni utolag
-        qc.metadata = {'qds': meta}
-    sampler = SamplerV2(mode=backend)
-    job = sampler.run([(qc,) for qc, _ in isa_jobs], shots=SHOTS)
-    print(f'Job ID: {job.job_id()}  ({job.backend().name})')
+    job = sampler(backend).run(pubs, shots=shots)
+    print(f"Job ID: {job.job_id()}  ({backend_name})")
     result = job.result()
 
-    rows, isa_meta = [], None
-    for i, (qc, meta) in enumerate(isa_jobs):
+    from qds.ibm import first_counts
+
+    rows = []
+    for i, qc in enumerate(pubs):
         pub = result[i]
-        # Qiskit 2.x-ben a data bin KULCSOLVA a regiszternev ('meas'),
-        # NEM '0' index -> pub.data[0] KeyError-t dob
-        counts = {}
-        for bin_name in pub.data.keys():
-            c = pub.data[bin_name].get_counts()
-            if c:
-                counts = c
-                break
-        p0 = counts.get('0', 0) / SHOTS * 100
-        meta['p0'] = p0
-        meta['counts'] = dict(counts)
+        _bin, counts = first_counts(pub)
+        total = sum(counts.values())
+        meta = dict(qc.metadata["qds"])
+        meta["p0"] = counts.get("0", 0) / total * 100
+        meta["counts"] = dict(counts)
         rows.append(meta)
-        print(f'tau={meta["tau_us"]:>4}us {meta["arm"]:>4} P(0)={p0:.2f}%')
-        if isa_meta is None:
-            isa_meta = pub.metadata.get('isa') if pub.metadata else None
+        print(f"tau={meta['tau_us']:>4}us {meta['arm']:>4}  P(0)={meta['p0']:.2f}%")
 
-    # Szerver oldali idozitas -> a tau-tengely onvizsgalata
-    server_dt = (isa_meta or {}).get('dt')
-    print('-' * 62)
-    print(f'Szerver dt (ISA metadata): {server_dt}')
-    if server_dt:
-        print(f'   = {server_dt*1e9:.4f} ns/dt')
-        print(f'   a script korábbi feltevese: {1/DT_SEC*1e9:.4f} ns/dt '
-              f'(arany {server_dt/DT_SEC:.3f})')
+    taus = sorted({r["tau_us"] for r in rows})
+    echo = [next(r["p0"] for r in rows
+                 if r["tau_us"] == t and r["arm"] == "echo") for t in taus]
+    ctrl = [next(r["p0"] for r in rows
+                 if r["tau_us"] == t and r["arm"] == "ctrl") for t in taus]
+    t2_fit = fit_t2(taus, echo, t1 * 1e6 if t1 else T1_CALIBRATED_US)
+    t1_fit = fit_t1(taus, ctrl)
 
-    taus = sorted({r['tau_us'] for r in rows})
-    echo = [next(r['p0'] for r in rows
-                 if r['tau_us'] == t and r['arm'] == 'echo') for t in taus]
-    t2_eff, rms, curve = _fit_t2_eff(taus, echo, t1)
-    axis = None
-    if t2_eff and t2:
-        axis = t2_eff / t2
-        print(f'Illesztett T2_eff = {t2_eff*1e6:.1f} us (RMS {rms:.2f}%)')
-        print(f'Kalibralt T2      = {t2*1e6:.1f} us')
-        print(f'TAU-TENGELY ELLENORZES: arany = {axis:.3f} '
-              f'({"RENDBEN" if 0.8 < axis < 1.25 else "ELTORES — a dt-felteves rossz volt"})')
-    return rows, {'server_dt': server_dt,
-                  't1_calibrated': t1, 't2_calibrated': t2,
-                  't2_fitted': t2_eff, 'tau_axis_ratio': axis,
-                  'job_id': job.job_id()}
+    print("-" * 62)
+    _report_and_verdict(t1_fit, t2_fit, diag)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='QDS Hahn Echo T2')
-    parser.add_argument('--mode', choices=['simulate', 'hardware'], default='simulate')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='hardver: minden epul de NEM kuld jobot (kvota nelkul)')
-    args = parser.parse_args()
-    os.environ['PYTHONIOENCODING'] = 'utf-8'
-    if args.mode == 'simulate':
-        rows = run_simulate()
-        with open('qam_echo_sim_results.json', 'w', encoding='utf-8') as f:
-            json.dump({'mode':'simulate','noise':{'T1_us':SIM_T1*1e6,'T2_us':SIM_T2*1e6},
-                        'theta':theta,'shots':SHOTS,'rows':rows}, f, indent=2)
-        print('Saved: qam_echo_sim_results.json')
+    diag.update({
+        "job_id": job.job_id(),
+        "t2_fitted_us": t2_fit["t2_us"],
+        "t2_fitted_stderr_us": t2_fit["stderr_us"],
+        "t1_fitted_us": t1_fit["t1_us"],
+        "t1_fitted_stderr_us": t1_fit["stderr_us"],
+        "fit_rms_pct": t2_fit["rms_pct"],
+    })
+    return rows, diag
+
+
+def _report_and_verdict(t1_fit, t2_fit, diag):
+    """Kiírja az illesztéseket és a τ-tengely ítéletét (a KONTROLL karból)."""
+    from qds.model import axis_verdict
+
+    t1_cal = diag.get("t1_calibrated_us")
+    t2_cal = diag.get("t2_calibrated_us")
+    if t1_fit["t1_us"] and t1_cal:
+        r1 = t1_fit["t1_us"] / t1_cal
+        print(f"T1_eff (kontroll kar) = {t1_fit['t1_us']:.1f} ± "
+              f"{t1_fit['stderr_us']:.1f} us   (arány {r1:.3f}, kalibrált "
+              f"{t1_cal:.1f} us)")
     else:
-        rows, diag = run_hardware(dry_run=args.dry_run)
-        os.makedirs('results', exist_ok=True)
-        out_path = os.path.join(
-            'results',
-            'qam_echo_t2_dryrun.json' if args.dry_run
-            else 'qam_echo_t2_results.json')
-        with open(out_path, 'w', encoding='utf-8') as f:
-            json.dump({'mode': 'hardware', 'backend': BACKEND_NAME,
-                       'qubit': QUBIT, 'theta': theta, 'shots': SHOTS,
-                       'diagnostics': diag, 'rows': rows}, f, indent=2)
-        print('Saved:', out_path)
+        r1 = None
+    if t2_fit["t2_us"] and t2_cal:
+        print(f"T2_eff (echo kar)     = {t2_fit['t2_us']:.1f} ± "
+              f"{t2_fit['stderr_us']:.1f} us   (arány "
+              f"{t2_fit['t2_us'] / t2_cal:.3f}, kalibrált {t2_cal:.1f} us)")
+    verdict = axis_verdict(r1, (t1_fit["stderr_us"] / t1_cal)
+                           if (t1_fit["stderr_us"] and t1_cal) else None)
+    print(f"τ-TENGELY: {verdict['text']}")
+    if diag.get("t2_fitted_us") and t2_cal:
+        print("MEGJEGYZÉS: a T2_eff/T2_kalibrált arány NEM a τ-tengely tesztje — "
+              "az a kontroll karból jön. Ez az arány az echo-korlátozott "
+              "dekoherenciát méri.")
+
+
+def _safe_dt(backend):
+    try:
+        return backend.target.dt
+    except Exception:
+        return None
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="QDS — késleltetett echo T2 sweep (U-delay-U† vs U-delay)")
+    parser.add_argument("--mode", choices=["simulate", "hardware"], default="simulate")
+    parser.add_argument("--backend", default=BACKEND_NAME,
+                        help=f"IBM backend neve (alap: {BACKEND_NAME})")
+    parser.add_argument("--qubit", type=int, default=QUBIT,
+                        help=f"cél-qubit (alap: {QUBIT})")
+    parser.add_argument("--shots", type=int, default=SHOTS,
+                        help=f"shot/áramkör (alap: {SHOTS})")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="hardver: minden felépül, de NEM küld jobot "
+                             "(kvóta nélkül)")
+    args = parser.parse_args(argv)
+
+    print(f"Angles: theta={THETA:.4f}, phi={PHI:.4f}, lam={LAMBDA:.4f} "
+          f"(rögzített, a publikált hash miatt)")
+    print(f"Várt kontroll P(0) tau=0-nál: cos^2(theta/2) = {CTRL_P0_AT_ZERO_PCT:.2f}%")
+
+    if args.mode == "simulate":
+        if args.dry_run:
+            parser.error("--dry-run csak --mode hardware mellett értelmes")
+        rows = run_simulate(shots=args.shots)
+        out = os.path.join(_HERE, "qam_echo_sim_results.json")
+        payload = {
+            "mode": "simulate",
+            "noise": {"T1_us": SIM_T1_US, "T2_us": SIM_T2_US,
+                      "note": "MEDIAN zajmodell — NEM a cél-qubit értékei"},
+            "theta": THETA, "phi": PHI, "lam": LAMBDA,
+            "shots": args.shots, "rows": rows,
+        }
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        print(f"Mentve: {os.path.basename(out)}")
+        return 0
+
+    rows, diag = run_hardware(args.backend, args.qubit, args.shots,
+                              dry_run=args.dry_run)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    fname = "qam_echo_t2_dryrun.json" if args.dry_run else "qam_echo_t2_results.json"
+    out = os.path.join(RESULTS_DIR, fname)
+    payload = {
+        "mode": "hardware",
+        "backend": args.backend,
+        "qubit": args.qubit,
+        "theta": THETA,
+        "shots": args.shots,
+        "diagnostics": diag,
+        "rows": rows,
+    }
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    print(f"Mentve: {os.path.relpath(out, _HERE)}")
+    return 0
+
+
+if __name__ == "__main__":
+    from qds.cli import run
+
+    sys.exit(run(main))

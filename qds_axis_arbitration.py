@@ -1,88 +1,103 @@
-# -*- coding: utf-8 -*-
+"""QDS — a kontroll kar T1-illesztése: a τ-tengely döntőbírája.
+
+A két kar eltérően sérül a modelltől:
+
+* **echo** gyorsabban hanylik, mint a kalibrált T2 mondja;
+* **kontroll** a kalibrált T1-gyel konzisztensen hanylik.
+
+Ha a hiba **időzítési** (a QPU a beadott dt-t más arányban számolta), akkor a
+két illesztett érték **azonos arányban** tolódna el (T1_eff/T1 ≈ T2_eff/T2).
+
+Ha viszont T1 illeszkedik és a T2 nem, akkor az **nem időskálázó hiba**,
+hanem valódi extra dekoherencia az echo karban (frekvencia-drift stb.).
+
+A szkript a job ID-t argumentumból (vagy ``QDS_JOB_ID`` környezeti
+változóból) veszi — korábban be volt égetve, ezért más futásra nem működött.
 """
-QDS — a kontroll kar T1-illesztese: a TAU-TENGELY DONTBIRaja
-==========================================================
-A ket kar elteroen serul el a modelltől:
-  - ECHO  gyorsabban hanylik, mint a kalibralt T2 mondja
-  - KONTROLL lassabban hanylik, mint a kalibralt T1 mondja
 
-Ha a hiba IDOZITESI (a QPU a beadott dt-t mas aranyban szamolta),
-akkor a ket illesztett ertek AZONOS aranyban kellene eltolodnia
-(T2_eff/T2 = T1_eff/T1), mert ugyanaz a rejtett idoskalaszorja.
-
-Ha viszont T1 illeszkedik es a T2 nem, akkor az NEM idoskalaszor,
-hanem valodi extra dekoherencia az echo karban (frekvencia-drift stb.).
-
-Tehát: T1_eff/T1  ==  T2_eff/T2  ->  idoskala hiba
-      T1_eff/T1 ~= 1  es T2_eff/T2 << 1  ->  valodi fizika
-"""
-import json, os
+import argparse
+import json
+import os
+import sys
 
 import numpy as np
-from scipy.optimize import curve_fit
 
-JOB_ID = 'dba0q2gc77vs738252kg'
-TAUS = [0, 10, 25, 50, 100, 200, 400, 800]
-T1_CAL = 254.1627621299776e-6
-T2_CAL = 121.25600306875533e-6
-THETA = 2.353304971691044
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SRC = os.path.join(_HERE, "src")
+if os.path.isdir(_SRC) and _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
-with open(os.path.join('results', f'qam_echo_{JOB_ID}.json'), encoding='utf-8') as f:
-    rows = json.load(f)['rows']
-echo = np.array([rows[2 * i]['p0'] for i in range(8)]) / 100
-ctrl = np.array([rows[2 * i + 1]['p0'] for i in range(8)]) / 100
-t = np.array(TAUS, dtype=float) * 1e-6
-m = t > 0
+from qds.constants import (  # noqa: E402
+    T1_CALIBRATED_US,
+    T2_CALIBRATED_US,
+    TAUS_US,
+    THETA,
+)
+from qds.model import ctrl_model, fit_t1, fit_t2, ratio_difference  # noqa: E402
 
-c, s2 = np.cos(THETA), np.sin(THETA) ** 2
-
-
-def ctrl_model(tt, t1, p0_off=0.0):
-    return 0.5 + 0.5 * (1 + (c - 1) * np.exp(-tt / t1)) + p0_off
+DEFAULT_JOB_ID = "dba0q2gc77vs738252kg"
 
 
-def echo_model(tt, t2, t1=T1_CAL):
-    e1 = np.exp(-tt / t1)
-    return 0.5 + 0.5 * (np.exp(-tt / t2) * s2 + e1 * c * c + c * (1 - e1))
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="QDS kontroll-kar arbitráció")
+    parser.add_argument("job_id", nargs="?",
+                        default=os.environ.get("QDS_JOB_ID", DEFAULT_JOB_ID))
+    parser.add_argument("--results-dir",
+                        default=os.path.join(_HERE, "results"))
+    args = parser.parse_args(argv)
+
+    path = os.path.join(args.results_dir, f"qam_echo_{args.job_id}.json")
+    with open(path, encoding="utf-8") as f:
+        rows = json.load(f)["rows"]
+    n = len(TAUS_US)
+    if len(rows) != 2 * n:
+        raise ValueError(f"{len(rows)} sor van, {2 * n} kellene")
+    echo = np.array([rows[2 * i]["p0"] for i in range(n)]) / 100
+    ctrl = np.array([rows[2 * i + 1]["p0"] for i in range(n)]) / 100
+    t = np.array(TAUS_US, dtype=float) * 1e-6
+
+    t1_cal = T1_CALIBRATED_US
+    t2_cal = T2_CALIBRATED_US
+
+    print("=" * 74)
+    print("A) KONTROLL kar → T1 illesztése (a τ-tengely bírája)")
+    f1 = fit_t1(TAUS_US, ctrl * 100, THETA)
+    print(f"   T1_ill = {f1['t1_us']:7.2f} ± {f1['stderr_us']:.2f} us   "
+          f"(offset {f1['offset_pct']:+.2f} %, RMS {f1['rms_pct']:.2f} %)")
+    r1 = f1["t1_us"] / t1_cal
+    r1_err = f1["stderr_us"] / t1_cal
+    print(f"   T1_ill / T1_kalibrált = {r1:.3f} ± {r1_err:.3f}")
+
+    print("=" * 74)
+    print("B) ECHO kar → T2 illesztése (T1 rögzítve a kalibrált értéken)")
+    f2 = fit_t2(TAUS_US, echo * 100, t1_cal, THETA)
+    print(f"   T2_ill = {f2['t2_us']:7.2f} ± {f2['stderr_us']:.2f} us   "
+          f"(RMS {f2['rms_pct']:.2f} %)")
+    r2 = f2["t2_us"] / t2_cal
+    r2_err = f2["stderr_us"] / t2_cal
+    print(f"   T2_ill / T2_kalibrált = {r2:.3f} ± {r2_err:.3f}")
+
+    print("=" * 74)
+    print("C) A két kar UGYANAZT az arányt adja? (időskála-teszt)")
+    d = ratio_difference(r1, r1_err, r2, r2_err)
+    print(f"   T1 arány = {r1:.3f}      T2 arány = {r2:.3f}")
+    print(f"   különbség = {d['difference']:+.3f} = {d['n_sigma']:.1f}σ")
+    if d["same_timescale"]:
+        print("   → AZONOS eltolódás: rejtett időskála-hiba gyanúja nyer.")
+    else:
+        print("   → NEM időskálázó hiba: valódi extra dekoherencia az echo karban.")
+
+    print("=" * 74)
+    print("D) A kontroll-modell részletei (kalibrált vs. illesztett T1)")
+    print("   tau(us)    mért   modell(T1=kalibrált)   modell(T1=illesztett)")
+    for i, tau in enumerate(TAUS_US):
+        mc = ctrl_model(t[i:i + 1], t1_cal * 1e-6)[0] * 100
+        mf = f1["curve_pct"][i]
+        print(f"   {tau:>6}   {ctrl[i] * 100:6.2f}   {mc:>17.2f}   {mf:>19.2f}")
+    return 0
 
 
-print('=' * 74)
-print('A) KONTROLL kar -> T1 illesztese (a tau-tengely arbitere)')
-p1, cov1 = curve_fit(ctrl_model, t[m], ctrl[m], p0=[250e-6, 0.0],
-                     bounds=([50e-6, -0.02], [1e-3, 0.02]))
-e1 = np.sqrt(np.diag(cov1))
-pred1 = ctrl_model(t[m], *p1) * 100
-rms1 = float(np.sqrt(np.mean((ctrl[m] * 100 - pred1) ** 2)))
-print(f'   T1_ill = {p1[0]*1e6:7.2f} +/- {e1[0]*1e6:.2f} us   '
-      f'(offset {p1[1]*100:+.2f}%, RMS {rms1:.2f}%)')
-r1 = p1[0] / T1_CAL
-print(f'   T1_ill / T1_kalib = {r1:.3f}  +/- {e1[0]/T1_CAL:.3f}')
+if __name__ == "__main__":
+    from qds.cli import run
 
-print('=' * 74)
-print('B) ECHO kar -> T2 illesztese (T1 fixen a kalibralt értéken)')
-p2, cov2 = curve_fit(echo_model, t[m], echo[m], p0=[150e-6],
-                     bounds=([1e-8], [20e-3]))
-e2 = float(np.sqrt(cov2[0][0]))
-pred2 = echo_model(t[m], p2[0]) * 100
-rms2 = float(np.sqrt(np.mean((echo[m] * 100 - pred2) ** 2)))
-print(f'   T2_ill = {p2[0]*1e6:7.2f} +/- {e2*1e6:.2f} us   (RMS {rms2:.2f}%)')
-r2 = p2[0] / T2_CAL
-print(f'   T2_ill / T2_kalib = {r2:.3f}  +/- {e2/T2_CAL:.3f}')
-
-print('=' * 74)
-print('C) ITERAZIO: a ket kar JOTEGY KULON aranyt ad?')
-print(f'   T1 arany = {r1:.3f}      T2 arany = {r2:.3f}')
-print(f'   kulonbseg = {abs(r1-r2):.3f}   (a hibas valtozo szoraja ~ '
-      f'{max(e1[0]/T1_CAL, e2/T2_CAL):.3f})')
-if abs(r1 - r2) > 0.25:
-    print('   -> NEM a rejtett idoskala: a ket kar kulonm ok miatt serul el.')
-else:
-    print('   -> osszhangzo eltolodas: a rejtett idoskcala gyanuja nyer.')
-print('=' * 74)
-print('D) RESZLETEZO KONTROLL-MODELL hatas vizsgalata')
-print('   tau(us)  mert    modell(T1=kalib)  modell(T1=ill)  resztal-kulonbseg')
-for i in range(8):
-    mc = ctrl_model(t[i:i+1], T1_CAL)[0] * 100
-    mf = ctrl_model(t[i:i+1], p1[0], p1[1])[0] * 100
-    print(f'   {TAUS[i]:>6}  {ctrl[i]*100:6.2f}  {mc:>15.2f}  {mf:>14.2f}'
-          f'  {ctrl[i]*100-mc:>+9.2f}')
+    sys.exit(run(main))

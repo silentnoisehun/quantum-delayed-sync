@@ -1,97 +1,107 @@
-# -*- coding: utf-8 -*-
+"""QDS — hardver elővizsgálat 2. (KVÓTA NÉLKÜL).
+
+Cél: a valódi dt / granularity, a cél-qubit (alapból 91) életképessége, és ha
+az rossz, a legjobb T2-es qubit kiválasztása.
+
+**Nem** indít QPU jobot → nem fogyaszt kvótát.
+
+Használat::
+
+    python qds_target_probe.py [--qubit 91]
 """
-QDS — hardver elővizsgálat 2. (KVÓTA NÉLKÜL)
-============================================
-Cél: a valódi dt / granularity, a cel-qubit (91) életképessége,
-és ha az rossz, a legjobb T2-es qubit kiválasztása.
 
-NEM indit QPU jobot -> nem fogyaszt kvotát.
-"""
-import json, os, sys
+import argparse
+import os
+import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-TARGET_BACKEND = os.environ.get('QDS_BACKEND', 'ibm_kingston')
-QUBIT = int(os.environ.get('QDS_QUBIT', '91'))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SRC = os.path.join(_HERE, "src")
+if os.path.isdir(_SRC) and _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
-
-def svc_connect():
-    from qiskit_ibm_runtime import QiskitRuntimeService
-    path = os.environ.get('IBM_TOKEN_PATH', os.path.join(HERE, 'ibm_token.json'))
-    with open(path, encoding='utf-8') as f:
-        token = json.load(f)['apikey']
-    return QiskitRuntimeService(channel='ibm_quantum_platform', token=token,
-                                instance='auto')
+from qds.constants import BACKEND_NAME, QUBIT  # noqa: E402
+from qds.ibm import get_backend  # noqa: E402
 
 
-def main():
-    svc = svc_connect()
-    backend = svc.backend(name=TARGET_BACKEND)
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="QDS target-vizsgálat")
+    parser.add_argument("--backend", default=os.environ.get("QDS_BACKEND",
+                                                            BACKEND_NAME))
+    parser.add_argument("--qubit", type=int,
+                        default=int(os.environ.get("QDS_QUBIT", QUBIT)))
+    args = parser.parse_args(argv)
+    qubit = args.qubit
+
+    backend = get_backend(args.backend)
     tgt = backend.target
-    print('=' * 70)
-    print(f'Backend: {TARGET_BACKEND}   num_qubits={backend.num_qubits}')
+    print("=" * 70)
+    print(f"Backend: {args.backend}   num_qubits={backend.num_qubits}")
 
-    # --- idozitas ------------------------------------------------------------
-    dt = getattr(backend, 'dt', None)
-    tdt = getattr(tgt, 'dt', None)
-    print(f'backend.dt      = {dt}')
-    print(f'target.dt       = {tdt}')
-    print(f'target.granularity = {getattr(tgt, "granularity", None)}')
-    print(f'target.pulse_alignment = {getattr(tgt, "pulse_alignment", None)}')
+    # --- időzítés ---
+    dt = getattr(backend, "dt", None)
+    tdt = getattr(tgt, "dt", None)
+    gran = getattr(tgt, "granularity", None)
+    print(f"backend.dt            = {dt}")
+    print(f"target.dt             = {tdt}")
+    print(f"target.granularity    = {gran}")
+    print(f"target.pulse_alignment= {getattr(tgt, 'pulse_alignment', None)}")
     eff_dt = tdt or dt
     if eff_dt:
-        print(f'  -> 1 dt = {eff_dt*1e9:.4f} ns;  '
-              f'a 10 us varakozas = {10e-6/eff_dt:.1f} dt')
-        print(f'  -> 800 us varakozas = {800e-6/eff_dt:.1f} dt  '
-              f'(granulaciohoz igazitva: '
-              f'{int(800e-6/eff_dt)//max(1,getattr(tgt,"granularity",1) or 1)}'
-              f' x gran)')
+        print(f"  → 1 dt = {eff_dt * 1e9:.4f} ns; a 10 us várakozás = "
+              f"{10e-6 / eff_dt:.1f} dt")
+        n800 = int(800e-6 / eff_dt)
+        g = max(1, gran or 1)
+        print(f"  → 800 us várakozás = {800e-6 / eff_dt:.1f} dt "
+              f"(granularitásra igazítva: {n800 // g} × {g})")
     else:
-        print('  -> dt ISMERETLEN: a tau->dt konverzio nem biztonsagos!')
+        print("  → dt ISMERETLEN: a τ→dt konverzió nem biztonságos!")
 
-    # --- qubit 91 ------------------------------------------------------------
-    print('-' * 70)
-    qprops = getattr(tgt, 'qubit_properties', None)
-    print(f'qubit_properties lista hossza: {len(qprops) if qprops else 0}')
-    p91 = qprops[QUBIT] if qprops and QUBIT < len(qprops) else None
-    print(f'Qubit {QUBIT} target.qubit_properties: {p91}')
-    p91b = None
+    # --- a cél-qubit ---
+    print("-" * 70)
+    qprops = getattr(tgt, "qubit_properties", None)
+    print(f"qubit_properties lista hossza: {len(qprops) if qprops else 0}")
+    p = qprops[qubit] if qprops and qubit < len(qprops) else None
+    print(f"Qubit {qubit} target.qubit_properties: {p}")
     try:
-        p91b = backend.qubit_properties(QUBIT)
-    except Exception as e:  # noqa: BLE001
-        print(f'backend.qubit_properties({QUBIT}) hiba: {e}')
-    print(f'Qubit {QUBIT} backend.qubit_properties: {p91b}')
+        print(f"Qubit {qubit} backend.qubit_properties: "
+              f"{backend.qubit_properties(qubit)}")
+    except Exception as exc:
+        print(f"backend.qubit_properties({qubit}) hiba: {exc}")
 
-    # --- mukodo qubitek ------------------------------------------------------
-    print('-' * 70)
+    # --- működő qubitek ---
+    print("-" * 70)
     good = []
     if qprops:
-        for i, p in enumerate(qprops):
-            if p is None:
+        for i, props in enumerate(qprops):
+            if props is None:
                 continue
-            t1 = getattr(p, 't1', None)
-            t2 = getattr(p, 't2', None)
+            t1 = getattr(props, "t1", None)
+            t2 = getattr(props, "t2", None)
             if t1 and t2:
-                good.append((i, t1, t2, getattr(p, 'frequency', None)))
-    print(f'Valtas maghul korlatozott T1/T2-vel: {len(good)} / {len(qprops or [])}')
+                good.append((i, t1, t2, getattr(props, "frequency", None)))
+    print(f"Valós (T1/T2-vel rendelkező) qubitek: {len(good)} / {len(qprops or [])}")
     if good:
         best = sorted(good, key=lambda x: -x[2])[:10]
-        print('Legjobb 10 T2 szerint:')
-        print('   qubit      T1(us)     T2(us)    freq(GHz)')
-        for i, t1, t2, f in best:
-            fs = f'{f/1e9:8.4f}' if f else '     n/a'
-            mark = ' <== CEL' if i == QUBIT else ''
-            print(f'   {i:>5}  {t1*1e6:8.1f}  {t2*1e6:9.1f}   {fs}{mark}')
-        if not any(g[0] == QUBIT for g in good):
-            print(f'\n>>> A {QUBIT}. QUBIT NEM szerepel a mukodo listaban!')
-            print(f'>>> Legjobb alternatíva: qubit {best[0][0]} '
-                  f'(T2={best[0][2]*1e6:.1f} us)')
-        else:
-            sel = next(g for g in good if g[0] == QUBIT)
+        print("Legjobb 10 T2 szerint:")
+        print("   qubit      T1(us)     T2(us)    freq(GHz)")
+        for i, t1, t2, freq in best:
+            fs = f"{freq / 1e9:8.4f}" if freq else "     n/a"
+            mark = " <== CÉL" if i == qubit else ""
+            print(f"   {i:>5}  {t1 * 1e6:8.1f}  {t2 * 1e6:9.1f}   {fs}{mark}")
+        if any(g[0] == qubit for g in good):
+            sel = next(g for g in good if g[0] == qubit)
             rank = sorted(good, key=lambda x: -x[2]).index(sel) + 1
-            print(f'\n>>> A {QUBIT}. qubit mukodo, T2={sel[2]*1e6:.1f} us, '
-                  f'rankia={rank}/{len(good)}')
-    print('=' * 70)
+            print(f"\n>>> A {qubit}. qubit működik, T2={sel[2] * 1e6:.1f} us, "
+                  f"rangsor={rank}/{len(good)}")
+        else:
+            print(f"\n>>> A {qubit}. QUBIT NEM szerepel a működő listában!")
+            print(f">>> Legjobb alternatíva: qubit {best[0][0]} "
+                  f"(T2={best[0][2] * 1e6:.1f} us)")
+    print("=" * 70)
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    from qds.cli import run
+
+    sys.exit(run(main))

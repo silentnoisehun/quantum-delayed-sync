@@ -33,7 +33,7 @@ A „modell" oszlop a mért qubit **saját T1/T2-jével** (T1 = 254,16 µs, T2 =
 | 3 | τ=0 echo ≈ 100 % | ✅ 99,51 % |
 | 4 | τ=0 kontroll ≈ 14,75 % | ✅ 14,45 % |
 
-### Fitelt időállandók
+### Illesztett időállandók
 
 | Mennyiség | Kalibrált | Illesztett | Arány |
 |-----------|-----------|-----------|-------|
@@ -47,12 +47,12 @@ RMS: kontroll 2,10 %, echo 2,28 %.
 A platform `dt = 4 ns`-ot ír (250 MHz), ami egy ~5 GHz-es qubithez fizikailag
 lehetetlen, ezért **azonnal gyanús volt, hogy a τ-tengely elcsúszott**.
 A döntőteszt: a **kontroll kar kizárólag T1-től függ** — ha az lenne a
-probléma, a rejtett idősшалózó mindkét karat **ugyanazzal az aránnyal**
+probléma, a rejtett időskálázó mindkét kart **ugyanazzal az aránnyal**
 tolná el.
 
-- kontroll arány = 1,123 ± 0,109 → **egyezik az 1,0-val** (1,1σ)
+- kontroll arány = 1,123 ± 0,109 → **egyezik az 1,0-val** (1,1σ — a hibán belül)
 - echo arány = 0,639 ± 0,106
-- a két arány különbsége 0,484 = **4,4× a hibaváltozó szórása**
+- a két arány különbsége 0,484 = **3,2σ** (a kombinált hibabecsléssel)
 
 **Következtetés: a τ-tengely helyes, a T2-csökkenés valós extra dekoherencia.**
 Az IBM kalibrált T2-je ideális, stabil frekvenciát feltételez; a random-axis
@@ -94,8 +94,13 @@ származik; a teljes kép az 5 futás átlaga (§2b).
 - T₂_eff átlag = **89,6 µs**, szórás = 39,2 µs, SEM = **17,5 µs** → arány **0,74 ± 0,15**
 - T₁_eff átlag = **273,8 µs**, szórás = 37,2 µs → arány **1,08 ± 0,14**
 - Monotonia: **5/5** futás monoton mindkét karban
-- A T₂-effektív **43–141 µs** tartományban ingadozik — ez 2,5× a futásonkénti
-  illesztési hiba → **valódi időbeli drift**, nem statisztikai zaj
+- A T₂-effektív **43,1–140,8 µs** tartományban ingadozik — a szórás (39,2 µs)
+  3,6× az átlagos futásonkénti illesztési hiba, a heterogenitás-χ² = 60,9
+  (df = 4, p ≈ 2·10⁻¹²) → **valódi időbeli drift**, nem statisztikai zaj
+- A T₁ ugyanezzel a teszttel **nem** szignifikáns (χ² = 7,7, df = 4, p = 0,10):
+  a relaxáció stabil, a fázis-koherencia ingadozik
+- A kalibrálttól való eltérés 31,6 µs = 1,8 SEM (p ≈ 0,07) → *irányadó*, nem döntő;
+  a döntő bizonyíték a futások közti ingadozás (T2 vs T1 szétválása)
 
 ## 3. SZIMULÁTOROS ELŐFUTÁS (2026-10-18, 00:46)
 
@@ -151,3 +156,7 @@ eltérés a valós qubit T2-jének és a valós driftnek tulajdonítható.
 | `results/raw_counts_all_runs.json` | minden futás nyers számlálói egy fájlban |
 | `results/circuit_hashes.json` | sablon-hash (azonos áramkör minden futásban) |
 | `results/multirun_stats.json` | kiértékelt több-futásos statisztika |
+| `qds_detectability.py` | χ²-teszt: drift vs. számított zaj (T2 vs T1) |
+| `qds_wavezz_repeat.py` | kereszt-teszt a wave-quantum ⟨ZZ⟩ csatornával |
+| `src/qds/` | a közös mag: konstansok, áramkör, modellek, adat, IBM kapcsolat |
+| `tests/` | 31 offline teszt (modell, sablon-hash, adatok, ítéletek) |

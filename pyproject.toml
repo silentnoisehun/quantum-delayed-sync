@@ -1,10 +1,61 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "quantum-sync"
-version = "0.1.0"
-description = "Quantum Delayed Synchronization (QDS) - U-delay-U-dagger visszateresi kar T2 sweep"
+name = "quantum-delayed-sync"
+version = "0.2.0"
+description = "Quantum Delayed Synchronization (QDS) — U-delay-U† Hahn-echo T2 sweep, IBM hardware pipeline"
+readme = "README.en.md"
 requires-python = ">=3.10"
-dependencies = ["qiskit>=1.0", "qiskit-aer>=0.13", "numpy>=1.24"]
+license = { text = "MIT" }
+authors = [{ name = "Máté R." }]
+keywords = ["quantum", "qds", "hahn-echo", "t2", "ibm-quantum", "decoherence"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+# Csak a szimulátor + kiértékelés futtatásához kellő minimum. A hardveres
+# rész (qiskit-ibm-runtime) szándékosan külön extra, hogy a `pip install .`
+# egy kutatási laptopon is gyors és offline-barát maradjon.
+dependencies = [
+    "qiskit>=1.0",
+    "qiskit-aer>=0.13",
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+hardware = ["qiskit-ibm-runtime>=0.30"]
+dev = ["pytest>=7", "ruff>=0.6"]
+
+[project.urls]
+Repository = "https://github.com/silentnoisehun/quantum-delayed-sync"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+# A gyökérben lévő `qds_*.py` szkriptek NEM csomagok: csak a `qds` csomag és
+# a kompatibilitási réteg (`qam_core`) kerül a wheelbe. Korábban a build a
+# `src/qam_core.py`-t a wheel gyökerébe tette, ami névtér-szennyezés volt.
+py-modules = ["qam_core"]
+packages = ["qds"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",   # a hosszú magyar kommentek olvashatóságát nem bontjuk meg
+    "RUF001", # a magyar szövegben előforduló nem-ASCII írásjelek szándékosak
+    "RUF002",
+    "RUF003",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

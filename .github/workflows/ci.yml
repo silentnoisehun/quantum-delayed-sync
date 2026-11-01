@@ -5,21 +5,51 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
+
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install deps
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package + dev deps
         run: |
           python -m pip install --upgrade pip
-          pip install qiskit qiskit-aer numpy pytest
-      - name: Syntax check
-        run: python -m py_compile hahn_echo_t2_qam.py
-      - name: Run tests
-        run: python -m pytest tests/ -v
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Compile every Python file
+        run: |
+          python -m compileall -q src qds_*.py hahn_echo_t2_qam.py test_connection.py tests
+
+      - name: Tests (offline — token és hálózat nélkül)
+        run: python -m pytest tests -v
+
+      # A publikált adatokat a kódnak reprodukálnia kell (tűréssel: a
+      # tests/test_data.py ellenőrzi a konkrét számokat). Itt csak az a
+      # kérdés, hogy a szkriptek hiba nélkül lefutnak-e a commitolt adatokon.
+      - name: Analysis scripts run on committed data
+        run: |
+          python qds_multirun_stats.py
+          python qds_analyze.py
+          python qds_detectability.py
+          python qds_axis_arbitration.py
+          python qds_dt_probe.py --offline
+
+      - name: Offline environment check (FakeKingston)
+        run: python qds_env_check.py --offline
