@@ -135,7 +135,7 @@ src/qds/               közös mag: konstansok, áramkör, modell, adat, IBM kap
 src/qam_core.py        kompatibilitási réteg (QAM integrátor)
 hahn_echo_t2_qam.py    mérőszkript (--mode simulate|hardware, --dry-run)
 qds_*.py               elővizsgálat / mérés / kiértékelés szkriptek
-tests/                 31 offline teszt (modell, sablon-hash, adat, ítélet)
+tests/                 38 offline teszt (modell, sablon-hash, adat, ítélet)
 results/               a mérés nyers és kiértékelt adatai (commitolva)
 docs/                  krónika, bírálói korlátok, napló, adatséma
 ```
