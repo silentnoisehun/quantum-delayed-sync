@@ -1,0 +1,71 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{\textbf{Calibration-Quoted $T_2$ Overestimates Random-Axis Echo $T_2$ on a Drifting Superconducting Transmon: A $T_1$ Control-Arm Arbitration}}
+
+\author{
+  \textbf{M\'at\'e R\'obert}\thanks{Corresponding author: \texttt{silentnoisehun@gmail.com}}\\
+  \textit{Independent Quantum Researcher, Silent Coder Lab}\\
+  \textit{Budapest, Hungary}
+}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Daily backend calibration reports on cloud-hosted superconducting transmon processors provide reference decoherence lifetimes ($T_1$ and Hahn-echo $T_2$). However, complex algorithms frequently execute general unitary operations with arbitrary rotation axes rather than standard resonant Clifford refocussing pulses. In this study, we measure the decoherence of an arbitrary-axis unitary inversion sequence ($U \cdot \text{delay}(\tau) \cdot U^{\dagger}$) across delay intervals $\tau \in [0, 800]\,\mu\text{s}$ on physical qubit 91 of the 156-qubit IBM Heron processor (\texttt{ibm\_kingston}). Crucially, we incorporate an independent $T_1$ control arm ($U \cdot \text{delay}(\tau)$ without inversion) as an in-situ clock reference to verify hardware timescale fidelity. While the measured $T_1$ matches the daily calibration within experimental uncertainty (ratio $T_{1,\text{meas}} / T_{1,\text{cal}} = 1.08 \pm 0.11$, ruling out clock scaling errors), the effective random-axis echo lifetime collapses to $T_{2,\text{eff}} = 89.6 \pm 17.5\,\mu\text{s}$ (with replicate runs descending to $77.5\,\mu\text{s}$), a substantial deficit compared to the quoted calibration value ($T_{2,\text{cal}} = 121.3\,\mu\text{s}$). Replicate sweeps separated by 75-second idling windows demonstrate significant cross-run variance ($\chi^2 = 60.9$, with inter-run variance $3.6\times$ Poisson shot noise). We demonstrate that arbitrary-axis state preservation sequences cannot refocus low-frequency background quasi-static flux and charge drift, causing calibration-quoted $T_2$ metrics to systematically overestimate real-world state retention.
+\end{abstract}
+
+\vspace{1em}
+\noindent \textbf{Keywords:} Superconducting transmons, Decoherence benchmarking, Hahn echo, Frequency drift, Quantum memory, Hardware characterization.
+
+\section{Introduction}
+Cloud superconducting quantum processors published by IBM Quantum provide daily calibration snapshots specifying physical qubit properties, including energy relaxation times ($T_1$) and Hahn-echo dephasing times ($T_2$). These metrics are acquired via idealized, high-power $\pi$-pulse echo schedules aligned along fixed Pauli axes.
+
+In quantum memory protocols and state-preservation pipelines, arbitrary state vectors $|\psi\rangle = U|0\rangle$ undergo delay intervals before being algebraically reversed via $U^{\dagger}$. A common assumption is that an inversion operation acts effectively as a dynamical decoupling echo. In this paper, we evaluate this assumption through multi-run hardware benchmarks on \texttt{ibm\_kingston}.
+
+\section{Experimental Architecture: The $T_1$ Arbitration Control Arm}
+Decoherence measurements were conducted on physical qubit 91 of the 156-qubit Heron r3 processor \texttt{ibm\_kingston}. For each delay time $\tau \in \{0, 50, 100, 200, 300, 400, 600, 800\}\,\mu\text{s}$, two parallel circuit branches were executed with 1024 shots per setting:
+
+\begin{enumerate}
+  \item \textbf{Unitary Inversion Branch (Echo):} State preparation $U$, followed by idling delay $\tau$, followed by inverse unitary $U^{\dagger}$ and computational basis readout. In the absence of dephasing, the outcome probability evaluates to $P(|0\rangle) = 1.0$.
+  \item \textbf{Decay Control Branch (Arbitration Arm):} State preparation $U$, followed by idling delay $\tau$, and direct readout without inversion.
+\end{enumerate}
+
+The control arm decays purely under energy relaxation $T_1$. Because $T_1$ decay is insensitive to phase dephasing, it serves as an empirical arbitration standard: if the hardware compiler improperly scales the physical delay parameter ($\text{dt}$), the extracted $T_1$ will diverge from the calibrated value.
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Decoherence Metric} & \textbf{Calibration Value} & \textbf{Hardware Measured} & \textbf{Ratio / Status} \\
+\midrule
+$T_1$ Relaxation Time & $132.4\,\mu\text{s}$ & $143.0 \pm 14.5\,\mu\text{s}$ & $1.08 \pm 0.11$ (Consistent) \\
+$T_2$ Echo Dephasing Time & $121.3\,\mu\text{s}$ & $89.6 \pm 17.5\,\mu\text{s}$ & $0.74 \pm 0.15$ (Deficit) \\
+Inter-run Replicate Variance & Poisson limit ($\sigma_0$) & $3.6 \times \sigma_0$ & $\chi^2 = 60.9$ (Anomalous drift) \\
+\bottomrule
+\end{tabular}
+\caption{Decoherence metrics on \texttt{ibm\_kingston} (Qubit 91) comparing daily calibration snapshots against multi-run arbitrary-axis echo experiments.}
+\label{tab:qds_results}
+\end{table}
+
+\section{Results and Drift Analysis}
+As detailed in Table~\ref{tab:qds_results}, the control arm confirms that the time base is accurate ($T_1$ ratio is unity within $1\sigma$). However, the measured effective $T_2$ is suppressed by $26\%$ to $36\%$ relative to calibration.
+
+Furthermore, across 4 consecutive replicate runs separated by 75-second idle intervals, the measured survival probabilities fluctuated significantly beyond statistical shot noise ($\chi^2 = 60.9$, 12 degrees of freedom, $p < 10^{-7}$). This confirms that transmon operating frequencies undergo quasi-static $1/f$ charge or flux drifts on sub-minute timescales. Because general unitaries $U$ do not commute with pure dephasing Hamiltonians in the same manner as a symmetric Pauli-$\pi$ pulse, they fail to refocus this drift.
+
+\section{Conclusion}
+Calibration-quoted $T_2$ figures represent an upper bound achieved only by strict CPMG or Hahn pulse trains. For arbitrary unitary quantum algorithms, low-frequency transmon drift reduces effective coherence times to $T_{2,\text{eff}} \approx 0.74\,T_{2,\text{cal}}$.
+
+\section*{Data Availability}
+Raw execution logs and analysis scripts are available at: \url{https://github.com/silentnoisehun/quantum-delayed-sync}.
+
+\end{document}

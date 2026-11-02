@@ -1,9 +1,14 @@
 # Quantum Delayed Synchronization (QDS)
 
-> Késleltetett echók — a memória spine szinkronizálása kvantumállapotokkal
-> **2026-10-18-tól valódi IBM hardveren mérve** (`ibm_kingston`, 91-es qubit).
+> ### 📄 Publication Manuscript Available
+> - **LaTeX Manuscript:** [rxiv/delayed_sync_manuscript.tex](arxiv/delayed_sync_manuscript.tex)
+> - **Title:** *Calibration-Quoted T2 Overestimates Random-Axis Echo T2 on a Drifting Superconducting Transmon: A T1 Control-Arm Arbitration*
+> - **Target Venue:** *IEEE Transactions on Quantum Engineering* / *EPJ Quantum Technology*
+> - **Key Empirical Finding:** On IBM Heron (ibm_kingston, Qubit 91), the T1 control arm matches calibration perfectly (ratio 1.08 +/- 0.11), while random-axis echo T2 drops to 89.6 +/- 17.5 us (vs. quoted 121.3 us), with replicate variance 3.6x Poisson noise (chi2 = 60.9).
 
-[English version](README.en.md)
+> Késleltetett echók — a memória spine szinkronizálása kvantumállapotokkal  
+> **2026-10-18-tól valódi IBM hardveren mérve** (ibm_kingston, 91-es qubit).  
+> [English version](README.en.md)
 
 ## Mit mérünk?
 
