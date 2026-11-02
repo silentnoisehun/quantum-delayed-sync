@@ -9,7 +9,16 @@
     }
   ],
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "upload_type": "software",
-  "keywords": ["quantum computing", "qds", "hahn-echo", "t2", "decoherence", "ibm-quantum", "spectral diffusion"]
+  "keywords": [
+    "quantum computing",
+    "qds",
+    "hahn-echo",
+    "t2",
+    "decoherence",
+    "ibm-quantum",
+    "spectral diffusion"
+  ],
+  "publication_date": "2026-11-02"
 }
