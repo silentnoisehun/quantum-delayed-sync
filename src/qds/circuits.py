@@ -34,7 +34,7 @@ def tau_to_dt(tau_us, dt, granularity=DT_GRANULARITY):
 
 
 def build_circuits(dt=None, unit="us", taus_us=TAUS_US, theta=THETA,
-                   phi=PHI, lam=LAMBDA):
+                   phi=PHI, lam=LAMBDA, echo_variant=False):
     """Felépíti a 8 τ-hoz tartozó echo és kontroll áramkört.
 
     Args:
@@ -43,6 +43,8 @@ def build_circuits(dt=None, unit="us", taus_us=TAUS_US, theta=THETA,
             ``'us'`` → a hardver (fizikai idő, a transzpiler konvertálja).
         taus_us: a τ-rács.
         theta, phi, lam: a random-axis U kapu szögei.
+        echo_variant: False (alap) → Ramsey-típusú U–delay–U† (T₂*),
+            True → Hahn-echo U–delay(τ/2)–X–delay(τ/2)–U† (T₂_echo).
 
     Returns:
         list[tuple]: ``(tau_us, duration, echo_circuit, ctrl_circuit)``.
@@ -61,7 +63,15 @@ def build_circuits(dt=None, unit="us", taus_us=TAUS_US, theta=THETA,
         qc_e.u(theta, phi, lam, 0)
         qc_e.barrier()
         if dur > 0:
-            qc_e.delay(dur, 0, unit=unit)
+            if echo_variant:
+                # Hahn-echo: X (π) impulzus a delay KÖZEPÉN
+                half = dur // 2
+                qc_e.delay(half, 0, unit=unit)
+                qc_e.x(0)
+                qc_e.delay(half, 0, unit=unit)
+            else:
+                # Ramsey-típusú: egyszerű delay (T₂*)
+                qc_e.delay(dur, 0, unit=unit)
         qc_e.barrier()
         qc_e.u(theta, phi, lam, 0).inverse()
         qc_e.barrier()

@@ -1,11 +1,18 @@
 # Quantum Delayed Synchronization (QDS)
 
 > ### 📄 Publication Manuscript Available
-> - **LaTeX Manuscript:** [rxiv/delayed_sync_manuscript.tex](arxiv/delayed_sync_manuscript.tex)
+> - **LaTeX Manuscript:** [arxiv/delayed_sync_manuscript.tex](arxiv/delayed_sync_manuscript.tex)
 > - **Title:** *Calibration-Quoted T2 Overestimates Random-Axis Echo T2 on a Drifting Superconducting Transmon: A T1 Control-Arm Arbitration*
 > - **Target Venue:** *IEEE Transactions on Quantum Engineering* / *EPJ Quantum Technology*
 > - **Key Empirical Finding:** On IBM Heron (ibm_kingston, Qubit 91), the T1 control arm matches calibration perfectly (ratio 1.08 +/- 0.11), while random-axis echo T2 drops to 89.6 +/- 17.5 us (vs. quoted 121.3 us), with replicate variance 3.6x Poisson noise (chi2 = 60.9).
-
+>
+> **Correction (2026-11-09).** This repository measures a **Ramsey-type (U–delay–U†) T₂\***.
+> The circuit is `Rz(U) → delay(τ) → Rz(U†)` with no refocusing π pulse in the middle, so slow
+> frequency drift is **not** refocused. The calibration `T₂` reported by the backend is a
+> Hahn-echo value and is therefore expected to be longer. The measured ratio
+> T₂\*(Ramsey)/T₂(echo) = 0.74 ± 0.15 is the textbook behaviour, not an anomaly.
+> See `src/qds/circuits.py` lines 60–66.
+>
 > Késleltetett echók — a memória spine szinkronizálása kvantumállapotokkal  
 > **2026-10-18-tól valódi IBM hardveren mérve** (ibm_kingston, 91-es qubit).  
 > [English version](README.en.md)
@@ -13,12 +20,25 @@
 ## Mit mérünk?
 
 A QDS a memória spine és a kvantumállapot koherens szinkronizációját vizsgálja.
-A kísérlet egy random-axis **Hahn-echo (U-delay-U†) sweep**:
+A kísérlet egy random-axis **Ramsey-típusú (U–delay–U†) T₂\* sweep**:
 
 | kar | áramkör | mitől függ |
 |---|---|---|
-| **echo** | `U → delay(τ) → U†` | T₂ (fázis-koherencia) |
+| **echo** | `U → delay(τ) → U†` | T₂\* (Ramsey, frekvencia-drift NEM visszfókuszálva) |
 | **kontroll** | `U → delay(τ)` | **csak T₁** (relaxáció) |
+
+**Ha valódi Hahn-echo-t akarsz**, a minimális változtatás a `circuits.py`-ban:
+
+```python
+# Hahn-echo változat: a delay KÖZEPÉN egy X (π) impulzus
+half = tau // 2
+qc.delay(half, q)          # τ/2
+qc.x(q)                    # π refokuszáló impulsusz
+qc.delay(half, q)          # τ/2
+```
+
+Ezt **külön áramkörként** tedd be (`echo_variant=True` kapcsolóval), és a README-ben
+különítsd el a két mérést: `T2*` (Ramsey) és `T2_echo` (Hahn).
 
 8 τ-érték (0…800 µs), fix qubiten, 1024 shot/áramkör, 5 futás.
 
