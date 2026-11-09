@@ -3,8 +3,8 @@
   "description": "U-delay-U† (Hahn-echo) versus U-delay (control) T2 sweep on IBM Quantum hardware (ibm_kingston, qubit 91), 5 runs with 1024 shots per circuit. Includes raw counts, evaluated statistics, circuit template SHA-256, and correlated T1/T2 multi-run drift analysis.",
   "creators": [
     {
-      "name": "Róbert, Máté",
-      "affiliation": "Independent Quantum Researcher, Silent Coder Lab",
+      "name": "Máté, Róbert",
+      "affiliation": "Independent researcher",
       "orcid": "0009-0003-3986-6039"
     }
   ],
